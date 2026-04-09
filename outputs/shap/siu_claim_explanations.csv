@@ -1,0 +1,386 @@
+rank,val_index,risk_score,actual_fraud,feature,shap_value,direction
+1,756,0.5703,1,AddressChange_Claim_2 to 3 years,0.1221,increases
+1,756,0.5703,1,Deductible,0.1181,increases
+1,756,0.5703,1,BasePolicy_Liability,0.067,increases
+1,756,0.5703,1,Fault_Policy Holder,-0.0468,decreases
+1,756,0.5703,1,Age,0.0146,increases
+2,1170,0.5703,1,AddressChange_Claim_2 to 3 years,0.1221,increases
+2,1170,0.5703,1,Deductible,0.1181,increases
+2,1170,0.5703,1,BasePolicy_Liability,0.066,increases
+2,1170,0.5703,1,Fault_Policy Holder,-0.0202,decreases
+2,1170,0.5703,1,Age,0.012,increases
+3,362,0.5561,1,AddressChange_Claim_2 to 3 years,0.1617,increases
+3,362,0.5561,1,Deductible,0.078,increases
+3,362,0.5561,1,BasePolicy_Liability,0.0516,increases
+3,362,0.5561,1,Month_Dec,-0.0238,decreases
+3,362,0.5561,1,Fault_Policy Holder,-0.0181,decreases
+4,861,0.5459,0,BasePolicy_Liability,0.0658,increases
+4,861,0.5459,0,Fault_Policy Holder,0.0595,increases
+4,861,0.5459,0,PolicyType_Sedan - Collision,0.0222,increases
+4,861,0.5459,0,VehicleCategory_Sport,0.0207,increases
+4,861,0.5459,0,Age,0.0103,increases
+5,51,0.5459,1,BasePolicy_Liability,0.0665,increases
+5,51,0.5459,1,Fault_Policy Holder,0.0596,increases
+5,51,0.5459,1,PolicyType_Sedan - Collision,0.0222,increases
+5,51,0.5459,1,VehicleCategory_Sport,0.0207,increases
+5,51,0.5459,1,Age,0.0104,increases
+6,673,0.5459,1,BasePolicy_Liability,0.064,increases
+6,673,0.5459,1,Fault_Policy Holder,0.0604,increases
+6,673,0.5459,1,PolicyType_Sedan - Collision,0.0221,increases
+6,673,0.5459,1,VehicleCategory_Sport,0.0207,increases
+6,673,0.5459,1,Age,0.0119,increases
+7,1293,0.5459,1,BasePolicy_Liability,0.0641,increases
+7,1293,0.5459,1,Fault_Policy Holder,0.0599,increases
+7,1293,0.5459,1,VehicleCategory_Sport,0.0207,increases
+7,1293,0.5459,1,PolicyType_Sedan - Collision,0.0204,increases
+7,1293,0.5459,1,Year,0.0116,increases
+8,298,0.5459,0,BasePolicy_Liability,0.062,increases
+8,298,0.5459,0,Fault_Policy Holder,0.0603,increases
+8,298,0.5459,0,PolicyType_Sedan - Collision,0.0224,increases
+8,298,0.5459,0,VehicleCategory_Sport,0.0207,increases
+8,298,0.5459,0,Age,0.0119,increases
+9,805,0.5459,0,BasePolicy_Liability,0.0654,increases
+9,805,0.5459,0,Fault_Policy Holder,0.0596,increases
+9,805,0.5459,0,PolicyType_Sedan - Collision,0.0222,increases
+9,805,0.5459,0,VehicleCategory_Sport,0.0207,increases
+9,805,0.5459,0,Age,0.01,increases
+10,699,0.5459,1,BasePolicy_Liability,0.0656,increases
+10,699,0.5459,1,Fault_Policy Holder,0.0595,increases
+10,699,0.5459,1,PolicyType_Sedan - Collision,0.0222,increases
+10,699,0.5459,1,VehicleCategory_Sport,0.0207,increases
+10,699,0.5459,1,Age,0.0103,increases
+11,1359,0.5459,1,BasePolicy_Liability,0.066,increases
+11,1359,0.5459,1,Fault_Policy Holder,0.0596,increases
+11,1359,0.5459,1,PolicyType_Sedan - Collision,0.0223,increases
+11,1359,0.5459,1,VehicleCategory_Sport,0.0207,increases
+11,1359,0.5459,1,Age,0.0104,increases
+12,1317,0.5459,1,BasePolicy_Liability,0.0625,increases
+12,1317,0.5459,1,Fault_Policy Holder,0.0586,increases
+12,1317,0.5459,1,PolicyType_Sedan - Collision,0.0467,increases
+12,1317,0.5459,1,VehicleCategory_Sport,0.0207,increases
+12,1317,0.5459,1,Month_Jul,-0.0174,decreases
+13,489,0.5454,0,BasePolicy_Liability,0.0659,increases
+13,489,0.5454,0,Fault_Policy Holder,0.059,increases
+13,489,0.5454,0,PolicyType_Sedan - Collision,0.0206,increases
+13,489,0.5454,0,Age,0.016,increases
+13,489,0.5454,0,BasePolicy_All Perils,0.0116,increases
+14,778,0.5454,0,BasePolicy_Liability,0.0645,increases
+14,778,0.5454,0,Fault_Policy Holder,0.0595,increases
+14,778,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+14,778,0.5454,0,Age,0.0159,increases
+14,778,0.5454,0,BasePolicy_All Perils,0.0116,increases
+15,575,0.5454,0,BasePolicy_Liability,0.065,increases
+15,575,0.5454,0,Fault_Policy Holder,0.0592,increases
+15,575,0.5454,0,PolicyType_Sedan - Collision,0.0206,increases
+15,575,0.5454,0,BasePolicy_All Perils,0.0128,increases
+15,575,0.5454,0,Age,0.0121,increases
+16,1531,0.5454,0,BasePolicy_Liability,0.0663,increases
+16,1531,0.5454,0,Fault_Policy Holder,0.0596,increases
+16,1531,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+16,1531,0.5454,0,Age,0.0156,increases
+16,1531,0.5454,0,BasePolicy_All Perils,0.0116,increases
+17,645,0.5454,0,BasePolicy_Liability,0.0671,increases
+17,645,0.5454,0,Fault_Policy Holder,0.0596,increases
+17,645,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+17,645,0.5454,0,Age,0.0158,increases
+17,645,0.5454,0,BasePolicy_All Perils,0.0117,increases
+18,1493,0.5454,0,BasePolicy_Liability,0.0624,increases
+18,1493,0.5454,0,Fault_Policy Holder,0.0584,increases
+18,1493,0.5454,0,Age,0.0399,increases
+18,1493,0.5454,0,PolicyType_Sedan - Collision,0.0203,increases
+18,1493,0.5454,0,Make_Chevrolet,-0.0155,decreases
+19,896,0.5454,0,BasePolicy_Liability,0.0639,increases
+19,896,0.5454,0,Fault_Policy Holder,0.0603,increases
+19,896,0.5454,0,PolicyType_Sedan - Collision,0.0223,increases
+19,896,0.5454,0,Age,0.0167,increases
+19,896,0.5454,0,BasePolicy_All Perils,0.0116,increases
+20,379,0.5454,0,BasePolicy_Liability,0.0672,increases
+20,379,0.5454,0,Fault_Policy Holder,0.0597,increases
+20,379,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+20,379,0.5454,0,BasePolicy_All Perils,0.0133,increases
+20,379,0.5454,0,Age,0.0121,increases
+21,62,0.5454,0,BasePolicy_Liability,0.0645,increases
+21,62,0.5454,0,Fault_Policy Holder,0.0603,increases
+21,62,0.5454,0,PolicyType_Sedan - Collision,0.0224,increases
+21,62,0.5454,0,Age,0.0174,increases
+21,62,0.5454,0,BasePolicy_All Perils,0.0116,increases
+22,418,0.5454,0,Fault_Policy Holder,0.0588,increases
+22,418,0.5454,0,BasePolicy_Liability,0.0582,increases
+22,418,0.5454,0,PolicyType_Sedan - Collision,0.0292,increases
+22,418,0.5454,0,BasePolicy_All Perils,0.018,increases
+22,418,0.5454,0,Age,0.0162,increases
+23,820,0.5454,0,BasePolicy_Liability,0.0663,increases
+23,820,0.5454,0,Fault_Policy Holder,0.0595,increases
+23,820,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+23,820,0.5454,0,Age,0.0158,increases
+23,820,0.5454,0,BasePolicy_All Perils,0.0116,increases
+24,846,0.5454,1,BasePolicy_Liability,0.0674,increases
+24,846,0.5454,1,Fault_Policy Holder,0.0567,increases
+24,846,0.5454,1,PolicyType_Sedan - Collision,0.0218,increases
+24,846,0.5454,1,Age,0.0156,increases
+24,846,0.5454,1,BasePolicy_All Perils,0.0117,increases
+25,458,0.5454,0,BasePolicy_Liability,0.0638,increases
+25,458,0.5454,0,Fault_Policy Holder,0.0588,increases
+25,458,0.5454,0,Age,0.0298,increases
+25,458,0.5454,0,PolicyType_Sedan - Collision,0.0204,increases
+25,458,0.5454,0,Make_Chevrolet,-0.0107,decreases
+26,740,0.5454,0,BasePolicy_Liability,0.0655,increases
+26,740,0.5454,0,Fault_Policy Holder,0.0582,increases
+26,740,0.5454,0,PolicyType_Sedan - Collision,0.0482,increases
+26,740,0.5454,0,Month_Jul,-0.0174,decreases
+26,740,0.5454,0,BasePolicy_All Perils,0.0116,increases
+27,441,0.5454,0,BasePolicy_Liability,0.0642,increases
+27,441,0.5454,0,Fault_Policy Holder,0.0598,increases
+27,441,0.5454,0,PolicyType_Sedan - Collision,0.0218,increases
+27,441,0.5454,0,Age,0.014,increases
+27,441,0.5454,0,BasePolicy_All Perils,0.0128,increases
+28,831,0.5454,0,BasePolicy_Liability,0.064,increases
+28,831,0.5454,0,Fault_Policy Holder,0.0595,increases
+28,831,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+28,831,0.5454,0,Age,0.0159,increases
+28,831,0.5454,0,BasePolicy_All Perils,0.0116,increases
+29,828,0.5454,1,BasePolicy_Liability,0.0671,increases
+29,828,0.5454,1,Fault_Policy Holder,0.0596,increases
+29,828,0.5454,1,PolicyType_Sedan - Collision,0.0218,increases
+29,828,0.5454,1,Age,0.0156,increases
+29,828,0.5454,1,BasePolicy_All Perils,0.0117,increases
+30,728,0.5454,0,BasePolicy_Liability,0.0641,increases
+30,728,0.5454,0,Fault_Policy Holder,0.058,increases
+30,728,0.5454,0,PolicyType_Sedan - Collision,0.0441,increases
+30,728,0.5454,0,MonthClaimed_Nov,-0.0192,decreases
+30,728,0.5454,0,BasePolicy_All Perils,0.018,increases
+31,156,0.5454,1,BasePolicy_Liability,0.0644,increases
+31,156,0.5454,1,Fault_Policy Holder,0.0603,increases
+31,156,0.5454,1,PolicyType_Sedan - Collision,0.0224,increases
+31,156,0.5454,1,Age,0.0171,increases
+31,156,0.5454,1,BasePolicy_All Perils,0.0117,increases
+32,1332,0.5454,0,Fault_Policy Holder,0.0595,increases
+32,1332,0.5454,0,BasePolicy_Liability,0.0564,increases
+32,1332,0.5454,0,PolicyType_Sedan - Collision,0.0223,increases
+32,1332,0.5454,0,Days_Policy_Claim_15 to 30,0.0161,increases
+32,1332,0.5454,0,Age,0.016,increases
+33,1309,0.5454,0,BasePolicy_Liability,0.0647,increases
+33,1309,0.5454,0,Fault_Policy Holder,0.0597,increases
+33,1309,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+33,1309,0.5454,0,BasePolicy_All Perils,0.0129,increases
+33,1309,0.5454,0,Age,0.0124,increases
+34,246,0.5454,0,BasePolicy_Liability,0.0624,increases
+34,246,0.5454,0,Fault_Policy Holder,0.0603,increases
+34,246,0.5454,0,PolicyType_Sedan - Collision,0.0224,increases
+34,246,0.5454,0,Age,0.0174,increases
+34,246,0.5454,0,BasePolicy_All Perils,0.012,increases
+35,1443,0.5454,1,BasePolicy_Liability,0.0652,increases
+35,1443,0.5454,1,Fault_Policy Holder,0.0578,increases
+35,1443,0.5454,1,PolicyType_Sedan - Collision,0.0478,increases
+35,1443,0.5454,1,BasePolicy_All Perils,0.0181,increases
+35,1443,0.5454,1,Month_Jul,-0.0148,decreases
+36,993,0.5454,0,BasePolicy_Liability,0.0657,increases
+36,993,0.5454,0,Fault_Policy Holder,0.0596,increases
+36,993,0.5454,0,PolicyType_Sedan - Collision,0.0223,increases
+36,993,0.5454,0,Age,0.0155,increases
+36,993,0.5454,0,BasePolicy_All Perils,0.0117,increases
+37,313,0.5454,0,BasePolicy_Liability,0.0666,increases
+37,313,0.5454,0,Fault_Policy Holder,0.0596,increases
+37,313,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+37,313,0.5454,0,BasePolicy_All Perils,0.0132,increases
+37,313,0.5454,0,Age,0.0124,increases
+38,1089,0.5454,0,BasePolicy_Liability,0.0672,increases
+38,1089,0.5454,0,Fault_Policy Holder,0.0597,increases
+38,1089,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+38,1089,0.5454,0,BasePolicy_All Perils,0.0127,increases
+38,1089,0.5454,0,Age,0.0124,increases
+39,1159,0.5454,0,BasePolicy_Liability,0.0634,increases
+39,1159,0.5454,0,Fault_Policy Holder,0.0588,increases
+39,1159,0.5454,0,PolicyType_Sedan - Collision,0.0291,increases
+39,1159,0.5454,0,BasePolicy_All Perils,0.018,increases
+39,1159,0.5454,0,Age,0.0156,increases
+40,1160,0.5454,1,BasePolicy_Liability,0.0629,increases
+40,1160,0.5454,1,Fault_Policy Holder,0.0596,increases
+40,1160,0.5454,1,PolicyType_Sedan - Collision,0.0288,increases
+40,1160,0.5454,1,BasePolicy_All Perils,0.018,increases
+40,1160,0.5454,1,Age,0.0172,increases
+41,1140,0.5454,0,BasePolicy_Liability,0.0629,increases
+41,1140,0.5454,0,Fault_Policy Holder,0.0597,increases
+41,1140,0.5454,0,PolicyType_Sedan - Collision,0.0223,increases
+41,1140,0.5454,0,BasePolicy_All Perils,0.0128,increases
+41,1140,0.5454,0,Age,0.0122,increases
+42,292,0.5454,0,BasePolicy_Liability,0.066,increases
+42,292,0.5454,0,Fault_Policy Holder,0.0589,increases
+42,292,0.5454,0,PolicyType_Sedan - Collision,0.0288,increases
+42,292,0.5454,0,BasePolicy_All Perils,0.018,increases
+42,292,0.5454,0,Age,0.0155,increases
+43,949,0.5454,0,BasePolicy_Liability,0.0642,increases
+43,949,0.5454,0,Fault_Policy Holder,0.0603,increases
+43,949,0.5454,0,PolicyType_Sedan - Collision,0.0224,increases
+43,949,0.5454,0,Age,0.0174,increases
+43,949,0.5454,0,BasePolicy_All Perils,0.0116,increases
+44,1047,0.5454,1,BasePolicy_Liability,0.0623,increases
+44,1047,0.5454,1,Fault_Policy Holder,0.0603,increases
+44,1047,0.5454,1,PolicyType_Sedan - Collision,0.0224,increases
+44,1047,0.5454,1,Age,0.0175,increases
+44,1047,0.5454,1,BasePolicy_All Perils,0.012,increases
+45,796,0.5454,0,BasePolicy_Liability,0.0654,increases
+45,796,0.5454,0,Fault_Policy Holder,0.0605,increases
+45,796,0.5454,0,PolicyType_Sedan - Collision,0.0224,increases
+45,796,0.5454,0,Age,0.0131,increases
+45,796,0.5454,0,BasePolicy_All Perils,0.0127,increases
+46,455,0.5454,0,BasePolicy_Liability,0.0616,increases
+46,455,0.5454,0,Fault_Policy Holder,0.0595,increases
+46,455,0.5454,0,PolicyType_Sedan - Collision,0.0288,increases
+46,455,0.5454,0,BasePolicy_All Perils,0.018,increases
+46,455,0.5454,0,Age,0.016,increases
+47,492,0.5454,0,BasePolicy_Liability,0.0635,increases
+47,492,0.5454,0,Fault_Policy Holder,0.0602,increases
+47,492,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+47,492,0.5454,0,Age,0.0167,increases
+47,492,0.5454,0,BasePolicy_All Perils,0.012,increases
+48,707,0.5454,0,BasePolicy_Liability,0.0619,increases
+48,707,0.5454,0,Fault_Policy Holder,0.059,increases
+48,707,0.5454,0,PolicyType_Sedan - Collision,0.0276,increases
+48,707,0.5454,0,BasePolicy_All Perils,0.0179,increases
+48,707,0.5454,0,Age,0.0173,increases
+49,680,0.5454,0,Fault_Policy Holder,0.0595,increases
+49,680,0.5454,0,BasePolicy_Liability,0.0567,increases
+49,680,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+49,680,0.5454,0,Days_Policy_Claim_15 to 30,0.0161,increases
+49,680,0.5454,0,Age,0.0159,increases
+50,557,0.5454,0,BasePolicy_Liability,0.0666,increases
+50,557,0.5454,0,Fault_Policy Holder,0.0587,increases
+50,557,0.5454,0,PolicyType_Sedan - Collision,0.0279,increases
+50,557,0.5454,0,BasePolicy_All Perils,0.0181,increases
+50,557,0.5454,0,Age,0.0158,increases
+51,1507,0.5454,1,BasePolicy_Liability,0.0658,increases
+51,1507,0.5454,1,Fault_Policy Holder,0.0586,increases
+51,1507,0.5454,1,PolicyType_Sedan - Collision,0.0297,increases
+51,1507,0.5454,1,BasePolicy_All Perils,0.0181,increases
+51,1507,0.5454,1,Age,0.0154,increases
+52,1249,0.5454,0,BasePolicy_Liability,0.0642,increases
+52,1249,0.5454,0,Fault_Policy Holder,0.0598,increases
+52,1249,0.5454,0,PolicyType_Sedan - Collision,0.0223,increases
+52,1249,0.5454,0,Age,0.0144,increases
+52,1249,0.5454,0,BasePolicy_All Perils,0.0127,increases
+53,185,0.5454,0,BasePolicy_Liability,0.0579,increases
+53,185,0.5454,0,Fault_Policy Holder,0.057,increases
+53,185,0.5454,0,Age,0.0398,increases
+53,185,0.5454,0,BasePolicy_All Perils,0.0318,increases
+53,185,0.5454,0,PolicyType_Sedan - Collision,0.0271,increases
+54,1313,0.5454,0,BasePolicy_Liability,0.0656,increases
+54,1313,0.5454,0,Fault_Policy Holder,0.059,increases
+54,1313,0.5454,0,PolicyType_Sedan - Collision,0.0208,increases
+54,1313,0.5454,0,Age,0.0157,increases
+54,1313,0.5454,0,BasePolicy_All Perils,0.0116,increases
+55,7,0.5454,0,BasePolicy_Liability,0.0632,increases
+55,7,0.5454,0,Fault_Policy Holder,0.0591,increases
+55,7,0.5454,0,PolicyType_Sedan - Collision,0.0443,increases
+55,7,0.5454,0,MonthClaimed_Nov,-0.0217,decreases
+55,7,0.5454,0,Age,0.0164,increases
+56,582,0.5454,1,BasePolicy_Liability,0.0653,increases
+56,582,0.5454,1,Fault_Policy Holder,0.0596,increases
+56,582,0.5454,1,PolicyType_Sedan - Collision,0.0219,increases
+56,582,0.5454,1,Age,0.0158,increases
+56,582,0.5454,1,BasePolicy_All Perils,0.0117,increases
+57,1379,0.5454,1,BasePolicy_Liability,0.0658,increases
+57,1379,0.5454,1,Fault_Policy Holder,0.0595,increases
+57,1379,0.5454,1,PolicyType_Sedan - Collision,0.0222,increases
+57,1379,0.5454,1,Age,0.0159,increases
+57,1379,0.5454,1,BasePolicy_All Perils,0.012,increases
+58,1391,0.5454,1,BasePolicy_Liability,0.0645,increases
+58,1391,0.5454,1,Fault_Policy Holder,0.0596,increases
+58,1391,0.5454,1,PolicyType_Sedan - Collision,0.0222,increases
+58,1391,0.5454,1,Age,0.0156,increases
+58,1391,0.5454,1,BasePolicy_All Perils,0.0117,increases
+59,220,0.5454,0,Fault_Policy Holder,0.0582,increases
+59,220,0.5454,0,BasePolicy_Liability,0.0573,increases
+59,220,0.5454,0,BasePolicy_All Perils,0.0351,increases
+59,220,0.5454,0,PolicyType_Sedan - Collision,0.0287,increases
+59,220,0.5454,0,Month_Dec,-0.0188,decreases
+60,74,0.5454,0,BasePolicy_Liability,0.0645,increases
+60,74,0.5454,0,Fault_Policy Holder,0.0574,increases
+60,74,0.5454,0,PolicyType_Sedan - Collision,0.0467,increases
+60,74,0.5454,0,Age,0.0254,increases
+60,74,0.5454,0,Month_Jul,-0.0174,decreases
+61,1000,0.5454,0,BasePolicy_Liability,0.0659,increases
+61,1000,0.5454,0,Fault_Policy Holder,0.0596,increases
+61,1000,0.5454,0,PolicyType_Sedan - Collision,0.0222,increases
+61,1000,0.5454,0,Age,0.0158,increases
+61,1000,0.5454,0,BasePolicy_All Perils,0.0116,increases
+62,1186,0.5454,0,BasePolicy_Liability,0.0644,increases
+62,1186,0.5454,0,Fault_Policy Holder,0.059,increases
+62,1186,0.5454,0,PolicyType_Sedan - Collision,0.0202,increases
+62,1186,0.5454,0,Age,0.0159,increases
+62,1186,0.5454,0,BasePolicy_All Perils,0.0121,increases
+63,1220,0.5454,0,BasePolicy_Liability,0.0653,increases
+63,1220,0.5454,0,Fault_Policy Holder,0.0583,increases
+63,1220,0.5454,0,PolicyType_Sedan - Collision,0.0483,increases
+63,1220,0.5454,0,Month_Jul,-0.0174,decreases
+63,1220,0.5454,0,BasePolicy_All Perils,0.0117,increases
+64,54,0.5446,0,Age,0.0665,increases
+64,54,0.5446,0,BasePolicy_Liability,0.0594,increases
+64,54,0.5446,0,Fault_Policy Holder,0.0562,increases
+64,54,0.5446,0,BasePolicy_All Perils,0.03,increases
+64,54,0.5446,0,PoliceReportFiled_No,-0.0262,decreases
+65,1301,0.5416,0,Fault_Policy Holder,0.0564,increases
+65,1301,0.5416,0,BasePolicy_Liability,0.0541,increases
+65,1301,0.5416,0,PolicyType_Sedan - Collision,0.0406,increases
+65,1301,0.5416,0,BasePolicy_All Perils,0.0341,increases
+65,1301,0.5416,0,MonthClaimed_Nov,-0.0256,decreases
+66,1212,0.5416,1,BasePolicy_Liability,0.0644,increases
+66,1212,0.5416,1,Fault_Policy Holder,0.0586,increases
+66,1212,0.5416,1,PolicyType_Sedan - Collision,0.0188,increases
+66,1212,0.5416,1,BasePolicy_All Perils,0.0126,increases
+66,1212,0.5416,1,Age,0.0072,increases
+67,376,0.5416,0,BasePolicy_Liability,0.0627,increases
+67,376,0.5416,0,Fault_Policy Holder,0.0564,increases
+67,376,0.5416,0,PolicyType_Sedan - Collision,0.0406,increases
+67,376,0.5416,0,BasePolicy_All Perils,0.0337,increases
+67,376,0.5416,0,MonthClaimed_Nov,-0.0256,decreases
+68,611,0.5416,0,BasePolicy_Liability,0.0635,increases
+68,611,0.5416,0,Fault_Policy Holder,0.0563,increases
+68,611,0.5416,0,PolicyType_Sedan - Collision,0.0427,increases
+68,611,0.5416,0,BasePolicy_All Perils,0.0338,increases
+68,611,0.5416,0,MonthClaimed_Nov,-0.027,decreases
+69,467,0.5416,0,BasePolicy_Liability,0.0647,increases
+69,467,0.5416,0,Fault_Policy Holder,0.0586,increases
+69,467,0.5416,0,PolicyType_Sedan - Collision,0.0187,increases
+69,467,0.5416,0,BasePolicy_All Perils,0.0121,increases
+69,467,0.5416,0,Age,0.0074,increases
+70,1221,0.5416,1,BasePolicy_Liability,0.0619,increases
+70,1221,0.5416,1,Fault_Policy Holder,0.0581,increases
+70,1221,0.5416,1,PolicyType_Sedan - Collision,0.0292,increases
+70,1221,0.5416,1,BasePolicy_All Perils,0.0133,increases
+70,1221,0.5416,1,Month_Jul,-0.0108,decreases
+71,1128,0.5416,0,BasePolicy_Liability,0.0639,increases
+71,1128,0.5416,0,Fault_Policy Holder,0.0556,increases
+71,1128,0.5416,0,PolicyType_Sedan - Collision,0.0191,increases
+71,1128,0.5416,0,BasePolicy_All Perils,0.0125,increases
+71,1128,0.5416,0,Age,0.0068,increases
+72,1162,0.5416,0,BasePolicy_Liability,0.0621,increases
+72,1162,0.5416,0,Fault_Policy Holder,0.0554,increases
+72,1162,0.5416,0,PolicyType_Sedan - Collision,0.0366,increases
+72,1162,0.5416,0,BasePolicy_All Perils,0.0314,increases
+72,1162,0.5416,0,Age,0.0314,increases
+73,335,0.5416,0,BasePolicy_Liability,0.063,increases
+73,335,0.5416,0,Fault_Policy Holder,0.0565,increases
+73,335,0.5416,0,PolicyType_Sedan - Collision,0.0407,increases
+73,335,0.5416,0,BasePolicy_All Perils,0.0338,increases
+73,335,0.5416,0,MonthClaimed_Nov,-0.0256,decreases
+74,1043,0.5416,0,Fault_Policy Holder,0.0586,increases
+74,1043,0.5416,0,BasePolicy_Liability,0.058,increases
+74,1043,0.5416,0,PolicyType_Sedan - Collision,0.0184,increases
+74,1043,0.5416,0,BasePolicy_All Perils,0.0121,increases
+74,1043,0.5416,0,Age,0.008,increases
+75,738,0.5416,0,BasePolicy_Liability,0.065,increases
+75,738,0.5416,0,Fault_Policy Holder,0.0586,increases
+75,738,0.5416,0,PolicyType_Sedan - Collision,0.0188,increases
+75,738,0.5416,0,BasePolicy_All Perils,0.0121,increases
+75,738,0.5416,0,Age,0.0074,increases
+76,40,0.541,0,BasePolicy_Liability,0.0648,increases
+76,40,0.541,0,Fault_Policy Holder,0.0585,increases
+76,40,0.541,0,PolicyType_Sedan - Collision,0.0222,increases
+76,40,0.541,0,Age,0.0134,increases
+76,40,0.541,0,BasePolicy_All Perils,0.008,increases
+77,655,0.541,1,BasePolicy_Liability,0.0632,increases
+77,655,0.541,1,Fault_Policy Holder,0.0573,increases
+77,655,0.541,1,Age,0.0375,increases
+77,655,0.541,1,PolicyType_Sedan - Collision,0.0208,increases
+77,655,0.541,1,Make_Chevrolet,-0.0155,decreases

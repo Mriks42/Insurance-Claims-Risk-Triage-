@@ -1,0 +1,6 @@
+{
+  "Model": "XGBoost (Test)",
+  "PR_AUC": 0.19508546287871287,
+  "Precision_at_5pct": 0.2077922077922078,
+  "Recall_at_5pct": 0.17391304347826086
+}

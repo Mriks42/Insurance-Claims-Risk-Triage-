@@ -1,0 +1,1543 @@
+risk_score,y_true,triage_bucket
+0.98451287,1,SIU
+0.9598358,1,SIU
+0.918692,1,SIU
+0.85896504,1,SIU
+0.8548749,0,SIU
+0.85065573,1,SIU
+0.8493198,1,SIU
+0.84426826,1,SIU
+0.8410215,1,SIU
+0.83629507,0,SIU
+0.83302456,0,SIU
+0.83226144,1,SIU
+0.83134377,1,SIU
+0.83117723,0,SIU
+0.82684046,1,SIU
+0.826216,0,SIU
+0.8258893,0,SIU
+0.8180469,0,SIU
+0.81791687,0,SIU
+0.8151401,0,SIU
+0.80950934,0,SIU
+0.8088379,0,SIU
+0.80873543,0,SIU
+0.8072393,0,SIU
+0.80526865,0,SIU
+0.80518407,0,SIU
+0.8035469,1,SIU
+0.80354,1,SIU
+0.8030255,0,SIU
+0.8029194,0,SIU
+0.8024611,0,SIU
+0.8020813,0,SIU
+0.8005161,1,SIU
+0.7992748,0,SIU
+0.7986073,1,SIU
+0.79851454,1,SIU
+0.79831624,0,SIU
+0.7981696,0,SIU
+0.79784214,0,SIU
+0.7939743,0,SIU
+0.79396755,0,SIU
+0.79327965,0,SIU
+0.79129773,0,SIU
+0.79110914,0,SIU
+0.7906615,1,SIU
+0.788119,0,SIU
+0.7854239,0,SIU
+0.78476846,0,SIU
+0.7844359,0,SIU
+0.783538,0,SIU
+0.7807318,0,SIU
+0.7804843,0,SIU
+0.7795898,0,SIU
+0.7792067,0,SIU
+0.7775098,0,SIU
+0.77729464,0,SIU
+0.776089,0,SIU
+0.77443737,1,SIU
+0.7742898,0,SIU
+0.7741088,0,SIU
+0.77313817,0,SIU
+0.7724536,1,SIU
+0.7708197,0,SIU
+0.7707172,0,SIU
+0.7697208,0,SIU
+0.7685432,0,SIU
+0.7684227,0,SIU
+0.7682277,0,SIU
+0.7663035,1,SIU
+0.7662203,1,SIU
+0.7655476,0,SIU
+0.76533675,0,SIU
+0.7640031,0,SIU
+0.76229167,0,SIU
+0.76086265,0,SIU
+0.75954473,0,SIU
+0.7594934,0,SIU
+0.7575547,0,Manual Review
+0.7547883,0,Manual Review
+0.7537115,0,Manual Review
+0.75347775,1,Manual Review
+0.75237113,0,Manual Review
+0.75192374,1,Manual Review
+0.75112236,1,Manual Review
+0.74976873,0,Manual Review
+0.74976397,1,Manual Review
+0.7485872,1,Manual Review
+0.7485643,0,Manual Review
+0.74647343,0,Manual Review
+0.7462032,1,Manual Review
+0.74553156,0,Manual Review
+0.74425113,0,Manual Review
+0.74226224,0,Manual Review
+0.7411391,0,Manual Review
+0.7405254,0,Manual Review
+0.73999476,0,Manual Review
+0.73820096,0,Manual Review
+0.7381831,0,Manual Review
+0.7363806,0,Manual Review
+0.7359052,0,Manual Review
+0.73580813,0,Manual Review
+0.7356747,0,Manual Review
+0.73341304,0,Manual Review
+0.73291475,1,Manual Review
+0.7320891,0,Manual Review
+0.73149765,0,Manual Review
+0.7290619,0,Manual Review
+0.7290428,1,Manual Review
+0.7278797,0,Manual Review
+0.7275987,0,Manual Review
+0.72655284,0,Manual Review
+0.72568816,0,Manual Review
+0.72548664,1,Manual Review
+0.7250625,0,Manual Review
+0.72467345,1,Manual Review
+0.7233584,0,Manual Review
+0.7227653,0,Manual Review
+0.7225474,1,Manual Review
+0.72234786,0,Manual Review
+0.72179496,0,Manual Review
+0.72169685,1,Manual Review
+0.7215509,1,Manual Review
+0.72151154,0,Manual Review
+0.7213624,0,Manual Review
+0.7206267,0,Manual Review
+0.7172725,0,Manual Review
+0.7167661,1,Manual Review
+0.7162117,0,Manual Review
+0.7161096,1,Manual Review
+0.7160281,0,Manual Review
+0.71549743,0,Manual Review
+0.71448976,1,Manual Review
+0.7143828,1,Manual Review
+0.71411544,0,Manual Review
+0.7137806,0,Manual Review
+0.7135223,0,Manual Review
+0.713339,1,Manual Review
+0.7131096,0,Manual Review
+0.71290135,0,Manual Review
+0.71217316,0,Manual Review
+0.7119535,1,Manual Review
+0.71182,0,Manual Review
+0.7113028,0,Manual Review
+0.7108746,1,Manual Review
+0.71071804,0,Manual Review
+0.70994455,1,Manual Review
+0.7097045,0,Manual Review
+0.70962536,0,Manual Review
+0.7095068,0,Manual Review
+0.7091988,1,Manual Review
+0.7080346,0,Manual Review
+0.7079484,0,Manual Review
+0.7070928,0,Manual Review
+0.7069281,0,Manual Review
+0.70674974,0,Manual Review
+0.7050671,0,Manual Review
+0.70467657,0,Manual Review
+0.70430976,0,Manual Review
+0.7039573,0,Manual Review
+0.70295066,0,Manual Review
+0.7029416,1,Manual Review
+0.70275736,0,Manual Review
+0.7024575,0,Manual Review
+0.7024228,0,Manual Review
+0.702336,0,Manual Review
+0.70136976,0,Manual Review
+0.70117563,1,Manual Review
+0.70112973,0,Manual Review
+0.7010063,0,Manual Review
+0.7009213,0,Manual Review
+0.6990802,0,Manual Review
+0.6987915,0,Manual Review
+0.69874185,0,Manual Review
+0.697433,0,Manual Review
+0.6974107,1,Manual Review
+0.69702977,0,Manual Review
+0.6959584,0,Manual Review
+0.6957414,0,Manual Review
+0.6945328,1,Manual Review
+0.69443303,0,Manual Review
+0.6938467,0,Manual Review
+0.6927169,0,Manual Review
+0.69260573,1,Manual Review
+0.6919244,0,Manual Review
+0.69190264,0,Manual Review
+0.6913576,0,Manual Review
+0.69131804,0,Manual Review
+0.6906364,0,Manual Review
+0.6905492,0,Manual Review
+0.6894371,0,Manual Review
+0.6890091,1,Manual Review
+0.68895733,0,Manual Review
+0.6888082,0,Manual Review
+0.6886213,0,Manual Review
+0.68815875,0,Manual Review
+0.6876177,0,Manual Review
+0.68738526,0,Manual Review
+0.68626016,0,Manual Review
+0.6861833,0,Manual Review
+0.68590283,0,Manual Review
+0.6852019,0,Manual Review
+0.6847848,0,Manual Review
+0.68452936,0,Manual Review
+0.6830098,0,Manual Review
+0.6828105,0,Manual Review
+0.6827709,0,Manual Review
+0.68261725,1,Manual Review
+0.6822765,0,Manual Review
+0.6819576,0,Manual Review
+0.68138057,0,Manual Review
+0.680413,0,Manual Review
+0.6798209,0,Manual Review
+0.6795486,0,Manual Review
+0.67953694,0,Manual Review
+0.6792406,0,Manual Review
+0.6790233,0,Manual Review
+0.67875904,0,Manual Review
+0.6781114,0,Manual Review
+0.6775732,0,Manual Review
+0.67690957,0,Manual Review
+0.6768736,0,Manual Review
+0.6763687,0,Manual Review
+0.6762668,0,Manual Review
+0.6747827,1,Manual Review
+0.6723735,1,Manual Review
+0.6723012,0,Manual Review
+0.6708014,1,Manual Review
+0.6705209,0,Manual Review
+0.6694754,0,Manual Review
+0.6689067,1,Manual Review
+0.668741,0,Manual Review
+0.6682119,1,Manual Review
+0.66793764,1,Manual Review
+0.66718477,0,Manual Review
+0.66683626,0,Manual Review
+0.6663338,1,Manual Review
+0.6656872,0,Manual Review
+0.66525525,0,Manual Review
+0.664859,0,Manual Review
+0.66439843,0,Manual Review
+0.6638101,0,Manual Review
+0.6635966,0,Manual Review
+0.6625768,0,Manual Review
+0.66252315,0,Manual Review
+0.6622945,0,Manual Review
+0.66144365,0,Manual Review
+0.66139114,0,Manual Review
+0.6611072,0,Manual Review
+0.6604986,0,Manual Review
+0.66035146,1,Manual Review
+0.6602594,0,Manual Review
+0.66016835,0,Manual Review
+0.6596204,0,Manual Review
+0.6594665,0,Manual Review
+0.6588715,0,Manual Review
+0.6585834,0,Manual Review
+0.6581647,1,Manual Review
+0.65691894,0,Manual Review
+0.6568644,0,Manual Review
+0.6567036,0,Manual Review
+0.6566009,0,Manual Review
+0.6556312,0,Manual Review
+0.65404886,0,Manual Review
+0.65356714,0,Manual Review
+0.653558,0,Manual Review
+0.65350395,0,Manual Review
+0.65314186,1,Manual Review
+0.65303355,0,Manual Review
+0.6528178,0,Manual Review
+0.65266865,1,Manual Review
+0.6507654,0,Manual Review
+0.6501561,0,Manual Review
+0.6501228,1,Manual Review
+0.6499865,0,Manual Review
+0.64987075,0,Manual Review
+0.6485609,0,Manual Review
+0.6480955,0,Manual Review
+0.6477326,0,Manual Review
+0.64645636,0,Manual Review
+0.64545536,0,Manual Review
+0.6453918,0,Manual Review
+0.645281,0,Manual Review
+0.6446991,0,Manual Review
+0.64409083,0,Manual Review
+0.6434604,0,Manual Review
+0.64343435,0,Manual Review
+0.643015,0,Manual Review
+0.64293313,0,Manual Review
+0.64284736,0,Manual Review
+0.6423497,0,Manual Review
+0.6418329,0,Manual Review
+0.64153904,1,Manual Review
+0.6406566,0,Manual Review
+0.64016753,0,Manual Review
+0.64012307,0,Manual Review
+0.6394286,0,Manual Review
+0.63894206,0,Manual Review
+0.63854843,0,Manual Review
+0.6381634,0,Manual Review
+0.6375487,0,Manual Review
+0.6368599,0,Manual Review
+0.63667536,0,Manual Review
+0.6362674,1,Manual Review
+0.635918,0,Manual Review
+0.63494503,0,Manual Review
+0.6344136,0,Manual Review
+0.6321385,0,Manual Review
+0.63199353,0,Manual Review
+0.63161635,0,Approve
+0.6308071,0,Approve
+0.6307682,0,Approve
+0.6305524,1,Approve
+0.62897444,0,Approve
+0.6282578,1,Approve
+0.6282337,0,Approve
+0.6279151,0,Approve
+0.62590015,0,Approve
+0.62540627,0,Approve
+0.6250851,0,Approve
+0.62391305,0,Approve
+0.62345546,1,Approve
+0.6228633,0,Approve
+0.6218956,0,Approve
+0.6218618,0,Approve
+0.6218486,0,Approve
+0.62170076,0,Approve
+0.6212336,0,Approve
+0.6212042,0,Approve
+0.62092125,1,Approve
+0.6207482,0,Approve
+0.6204878,0,Approve
+0.6178896,0,Approve
+0.6172468,0,Approve
+0.61616486,0,Approve
+0.61593366,0,Approve
+0.6142793,0,Approve
+0.61404854,0,Approve
+0.6135257,0,Approve
+0.6133395,0,Approve
+0.6130803,0,Approve
+0.6123254,0,Approve
+0.61178637,0,Approve
+0.61157095,0,Approve
+0.61142975,0,Approve
+0.610955,0,Approve
+0.61078423,0,Approve
+0.6106373,0,Approve
+0.61047846,0,Approve
+0.6096383,0,Approve
+0.608072,0,Approve
+0.60761297,1,Approve
+0.6075601,0,Approve
+0.60705787,0,Approve
+0.60686326,0,Approve
+0.6067334,0,Approve
+0.6065856,0,Approve
+0.6061777,0,Approve
+0.60615265,1,Approve
+0.60603684,0,Approve
+0.6056119,0,Approve
+0.60549134,0,Approve
+0.60485125,0,Approve
+0.6045175,0,Approve
+0.60298985,0,Approve
+0.6022065,0,Approve
+0.60190845,0,Approve
+0.6016689,0,Approve
+0.60139275,0,Approve
+0.6011696,0,Approve
+0.59822786,0,Approve
+0.598123,0,Approve
+0.596994,0,Approve
+0.5968355,0,Approve
+0.59577537,0,Approve
+0.5954843,0,Approve
+0.59508365,0,Approve
+0.5949494,0,Approve
+0.59473723,0,Approve
+0.59314734,0,Approve
+0.5922461,0,Approve
+0.5920291,0,Approve
+0.5919379,0,Approve
+0.58941215,0,Approve
+0.5893147,0,Approve
+0.58890676,0,Approve
+0.58709735,0,Approve
+0.5852661,0,Approve
+0.58517444,0,Approve
+0.5851617,0,Approve
+0.58492243,0,Approve
+0.58379835,0,Approve
+0.5836708,0,Approve
+0.58319485,0,Approve
+0.58298194,0,Approve
+0.58219475,0,Approve
+0.57996434,0,Approve
+0.57885265,0,Approve
+0.57876223,0,Approve
+0.5786904,0,Approve
+0.5764817,0,Approve
+0.5757487,0,Approve
+0.57458544,0,Approve
+0.5738458,0,Approve
+0.5724847,0,Approve
+0.5719013,0,Approve
+0.57151616,0,Approve
+0.5695738,0,Approve
+0.5685631,0,Approve
+0.5680022,0,Approve
+0.56752014,0,Approve
+0.5673866,0,Approve
+0.56595546,0,Approve
+0.5659264,0,Approve
+0.5647956,0,Approve
+0.564394,0,Approve
+0.5606672,0,Approve
+0.55984086,0,Approve
+0.55948097,1,Approve
+0.55883825,0,Approve
+0.5587504,0,Approve
+0.5583503,0,Approve
+0.5582591,0,Approve
+0.5577104,0,Approve
+0.557481,0,Approve
+0.5570047,0,Approve
+0.55679667,0,Approve
+0.556775,0,Approve
+0.55507135,0,Approve
+0.5546909,0,Approve
+0.5545706,0,Approve
+0.5510706,0,Approve
+0.54887027,0,Approve
+0.54865074,0,Approve
+0.5469884,0,Approve
+0.5464235,0,Approve
+0.54623485,0,Approve
+0.54619145,0,Approve
+0.54567426,0,Approve
+0.54494065,0,Approve
+0.54367584,0,Approve
+0.542697,0,Approve
+0.5420288,1,Approve
+0.541915,0,Approve
+0.54007965,0,Approve
+0.5394803,1,Approve
+0.5393461,0,Approve
+0.5391875,1,Approve
+0.53917205,0,Approve
+0.5388895,0,Approve
+0.53868717,0,Approve
+0.5383815,0,Approve
+0.537736,0,Approve
+0.5362537,0,Approve
+0.53609604,0,Approve
+0.5358003,0,Approve
+0.53576726,0,Approve
+0.5345415,0,Approve
+0.5342213,0,Approve
+0.53390926,0,Approve
+0.5338017,0,Approve
+0.5332208,0,Approve
+0.5326926,0,Approve
+0.5315084,0,Approve
+0.5314089,0,Approve
+0.52866864,1,Approve
+0.5250879,0,Approve
+0.5241404,0,Approve
+0.52215225,0,Approve
+0.5206461,0,Approve
+0.5197002,0,Approve
+0.51965684,0,Approve
+0.5193571,1,Approve
+0.5163848,0,Approve
+0.5159279,0,Approve
+0.5153922,1,Approve
+0.5141644,0,Approve
+0.5102618,1,Approve
+0.5083161,0,Approve
+0.5080583,0,Approve
+0.50734746,0,Approve
+0.506947,0,Approve
+0.50437355,0,Approve
+0.50377315,0,Approve
+0.5032414,0,Approve
+0.5022535,0,Approve
+0.50110793,0,Approve
+0.50105953,0,Approve
+0.5009279,0,Approve
+0.49751544,0,Approve
+0.4968346,0,Approve
+0.4967032,0,Approve
+0.49548998,0,Approve
+0.4949335,0,Approve
+0.4944905,0,Approve
+0.49272764,0,Approve
+0.49262363,0,Approve
+0.4926064,0,Approve
+0.4925466,0,Approve
+0.49235225,0,Approve
+0.49233723,0,Approve
+0.4914641,0,Approve
+0.4890347,0,Approve
+0.48893762,0,Approve
+0.48444697,1,Approve
+0.48049805,0,Approve
+0.48006848,0,Approve
+0.4792017,0,Approve
+0.4791573,0,Approve
+0.4787765,0,Approve
+0.47728825,0,Approve
+0.47671843,0,Approve
+0.47521973,0,Approve
+0.47501224,0,Approve
+0.47225377,0,Approve
+0.4714437,0,Approve
+0.46917665,0,Approve
+0.4686919,1,Approve
+0.46730354,0,Approve
+0.46700895,0,Approve
+0.46606869,0,Approve
+0.4653845,0,Approve
+0.46448797,0,Approve
+0.46378577,0,Approve
+0.4548662,0,Approve
+0.453684,0,Approve
+0.45195192,0,Approve
+0.45096755,0,Approve
+0.4506215,0,Approve
+0.45041305,0,Approve
+0.4460722,0,Approve
+0.4450322,0,Approve
+0.44353217,0,Approve
+0.44315347,0,Approve
+0.44211784,0,Approve
+0.43913794,0,Approve
+0.4389384,0,Approve
+0.4388122,0,Approve
+0.43567336,0,Approve
+0.43564612,0,Approve
+0.4346994,0,Approve
+0.4328867,1,Approve
+0.43215227,0,Approve
+0.42794457,0,Approve
+0.42787224,0,Approve
+0.42445204,1,Approve
+0.42296094,0,Approve
+0.4222624,0,Approve
+0.4214219,0,Approve
+0.4208348,0,Approve
+0.4200343,0,Approve
+0.4157374,1,Approve
+0.41394994,0,Approve
+0.41388318,0,Approve
+0.41152492,0,Approve
+0.41026548,0,Approve
+0.40911227,0,Approve
+0.40513983,0,Approve
+0.404316,0,Approve
+0.40067473,1,Approve
+0.39998588,0,Approve
+0.39936277,0,Approve
+0.3970981,0,Approve
+0.39649168,0,Approve
+0.39568695,0,Approve
+0.39425462,0,Approve
+0.3922632,0,Approve
+0.39013296,0,Approve
+0.39008233,0,Approve
+0.3897619,0,Approve
+0.3884149,0,Approve
+0.38611877,0,Approve
+0.38404235,0,Approve
+0.38369793,0,Approve
+0.3834705,0,Approve
+0.37918362,0,Approve
+0.37913626,0,Approve
+0.37497562,0,Approve
+0.37392548,0,Approve
+0.37228906,0,Approve
+0.37139657,0,Approve
+0.37092233,0,Approve
+0.3671231,0,Approve
+0.36436418,0,Approve
+0.36401418,0,Approve
+0.3635183,0,Approve
+0.35953504,0,Approve
+0.35698056,0,Approve
+0.35688287,0,Approve
+0.3555504,0,Approve
+0.35299847,0,Approve
+0.3509911,0,Approve
+0.35047486,0,Approve
+0.3434655,0,Approve
+0.34304285,0,Approve
+0.33791104,0,Approve
+0.33669034,0,Approve
+0.33370772,0,Approve
+0.33118922,1,Approve
+0.3310874,0,Approve
+0.3291184,0,Approve
+0.3275278,0,Approve
+0.32720482,0,Approve
+0.32203457,0,Approve
+0.32145196,0,Approve
+0.31948096,0,Approve
+0.31881112,0,Approve
+0.3185106,1,Approve
+0.31800985,1,Approve
+0.31285888,0,Approve
+0.31221655,0,Approve
+0.3103819,0,Approve
+0.31028527,0,Approve
+0.30870864,0,Approve
+0.30348018,0,Approve
+0.30177996,0,Approve
+0.30121246,0,Approve
+0.29990804,0,Approve
+0.29800823,0,Approve
+0.29763645,0,Approve
+0.29619297,0,Approve
+0.2957073,0,Approve
+0.29152894,0,Approve
+0.29076,0,Approve
+0.29004854,0,Approve
+0.28637385,0,Approve
+0.28260276,0,Approve
+0.27616385,0,Approve
+0.2757257,0,Approve
+0.27400628,0,Approve
+0.27304924,0,Approve
+0.270894,0,Approve
+0.2702938,0,Approve
+0.2702341,0,Approve
+0.2700584,0,Approve
+0.26941612,0,Approve
+0.26813382,1,Approve
+0.26803058,0,Approve
+0.26640356,1,Approve
+0.26375517,0,Approve
+0.26251096,0,Approve
+0.26084313,0,Approve
+0.25594336,0,Approve
+0.25584087,0,Approve
+0.255536,0,Approve
+0.2505138,0,Approve
+0.24938206,0,Approve
+0.24738437,0,Approve
+0.2440783,0,Approve
+0.23982653,0,Approve
+0.23916285,0,Approve
+0.23641261,0,Approve
+0.23381758,0,Approve
+0.23280245,0,Approve
+0.23101507,0,Approve
+0.22913069,0,Approve
+0.22770356,0,Approve
+0.22568661,0,Approve
+0.22422229,0,Approve
+0.22076711,0,Approve
+0.21962765,0,Approve
+0.21944685,0,Approve
+0.218723,0,Approve
+0.21786852,1,Approve
+0.21423623,0,Approve
+0.21235485,0,Approve
+0.20719193,0,Approve
+0.20485757,0,Approve
+0.19843407,0,Approve
+0.19726768,0,Approve
+0.19711736,0,Approve
+0.19562683,0,Approve
+0.19228949,0,Approve
+0.19171852,0,Approve
+0.18994547,0,Approve
+0.1882588,0,Approve
+0.18487826,0,Approve
+0.18386488,0,Approve
+0.18322025,0,Approve
+0.18298365,0,Approve
+0.17824574,0,Approve
+0.17732763,0,Approve
+0.1765893,0,Approve
+0.1765594,0,Approve
+0.17563786,0,Approve
+0.1725515,0,Approve
+0.17009465,0,Approve
+0.16663656,0,Approve
+0.1657104,0,Approve
+0.16537453,0,Approve
+0.16451336,0,Approve
+0.16390729,0,Approve
+0.16388938,0,Approve
+0.15925317,0,Approve
+0.15754534,0,Approve
+0.1572228,0,Approve
+0.15640715,0,Approve
+0.15564784,0,Approve
+0.15520243,0,Approve
+0.15417503,0,Approve
+0.1540468,0,Approve
+0.15224679,0,Approve
+0.15204084,0,Approve
+0.15188333,0,Approve
+0.15145104,0,Approve
+0.14976731,0,Approve
+0.14769626,0,Approve
+0.14676662,0,Approve
+0.14523987,0,Approve
+0.14328487,0,Approve
+0.14201559,0,Approve
+0.14064513,0,Approve
+0.14056294,0,Approve
+0.14028995,0,Approve
+0.13921975,0,Approve
+0.13858034,0,Approve
+0.13801293,0,Approve
+0.13700931,0,Approve
+0.13544555,0,Approve
+0.13374594,0,Approve
+0.13330284,0,Approve
+0.13133343,0,Approve
+0.13117236,0,Approve
+0.12971205,0,Approve
+0.12887979,0,Approve
+0.12766236,0,Approve
+0.12745497,0,Approve
+0.12719344,0,Approve
+0.1267942,0,Approve
+0.12543492,0,Approve
+0.12499645,0,Approve
+0.12466942,0,Approve
+0.12301188,0,Approve
+0.12235207,0,Approve
+0.12212713,0,Approve
+0.12156238,0,Approve
+0.12111434,0,Approve
+0.118011944,0,Approve
+0.117355675,0,Approve
+0.11582039,0,Approve
+0.11546668,0,Approve
+0.11546407,0,Approve
+0.115182884,0,Approve
+0.11479187,0,Approve
+0.11414287,0,Approve
+0.11307156,0,Approve
+0.11286084,0,Approve
+0.11252744,0,Approve
+0.11202306,0,Approve
+0.11146403,0,Approve
+0.11077455,0,Approve
+0.110627614,0,Approve
+0.11048486,0,Approve
+0.107768506,0,Approve
+0.10701251,0,Approve
+0.106582746,0,Approve
+0.106566004,0,Approve
+0.10627359,0,Approve
+0.10621799,0,Approve
+0.10579911,0,Approve
+0.10519936,0,Approve
+0.105111465,0,Approve
+0.10491513,0,Approve
+0.10291185,0,Approve
+0.102596596,0,Approve
+0.10238514,0,Approve
+0.10235679,0,Approve
+0.10172718,0,Approve
+0.101106904,0,Approve
+0.10025441,0,Approve
+0.10016076,0,Approve
+0.099780396,0,Approve
+0.09935787,0,Approve
+0.09919793,0,Approve
+0.09917724,0,Approve
+0.098389834,0,Approve
+0.09822129,0,Approve
+0.09817902,0,Approve
+0.09789239,0,Approve
+0.09772246,0,Approve
+0.097308695,0,Approve
+0.09721332,0,Approve
+0.0970593,0,Approve
+0.096810766,0,Approve
+0.09630188,0,Approve
+0.09588791,0,Approve
+0.095802516,0,Approve
+0.09489006,0,Approve
+0.094378866,0,Approve
+0.09432869,0,Approve
+0.09413105,0,Approve
+0.09399205,0,Approve
+0.093637444,0,Approve
+0.09307432,0,Approve
+0.09275934,0,Approve
+0.09255032,0,Approve
+0.091910966,0,Approve
+0.091461636,0,Approve
+0.09102138,0,Approve
+0.09030549,0,Approve
+0.09014052,0,Approve
+0.090135865,0,Approve
+0.089631416,0,Approve
+0.089350045,0,Approve
+0.088470586,0,Approve
+0.08816574,0,Approve
+0.08760476,0,Approve
+0.087551594,0,Approve
+0.08691303,0,Approve
+0.086651556,0,Approve
+0.086597025,0,Approve
+0.0865337,0,Approve
+0.086325206,0,Approve
+0.08535895,0,Approve
+0.08500693,0,Approve
+0.08486686,0,Approve
+0.08475988,0,Approve
+0.08416989,0,Approve
+0.08385976,0,Approve
+0.08359524,0,Approve
+0.08359127,0,Approve
+0.08335988,0,Approve
+0.08311351,0,Approve
+0.08309486,0,Approve
+0.08252204,0,Approve
+0.08186352,0,Approve
+0.08183757,0,Approve
+0.08178732,0,Approve
+0.081710435,0,Approve
+0.08161515,0,Approve
+0.08098619,0,Approve
+0.08095405,0,Approve
+0.08057078,0,Approve
+0.08028818,0,Approve
+0.07996326,0,Approve
+0.0797939,0,Approve
+0.0796884,0,Approve
+0.079386584,0,Approve
+0.07927396,0,Approve
+0.07903276,0,Approve
+0.078999475,0,Approve
+0.07862357,0,Approve
+0.078110024,0,Approve
+0.07808637,0,Approve
+0.07799619,0,Approve
+0.07798935,0,Approve
+0.07798621,0,Approve
+0.07788302,0,Approve
+0.077700324,0,Approve
+0.07764729,0,Approve
+0.07755282,0,Approve
+0.07742105,0,Approve
+0.07738626,0,Approve
+0.07718969,0,Approve
+0.07695225,0,Approve
+0.07693953,0,Approve
+0.076933846,0,Approve
+0.07688136,0,Approve
+0.07682756,0,Approve
+0.076122016,0,Approve
+0.075950764,0,Approve
+0.07529997,0,Approve
+0.07528037,0,Approve
+0.07505625,0,Approve
+0.07495437,0,Approve
+0.07484988,0,Approve
+0.074032985,0,Approve
+0.07350026,0,Approve
+0.07331879,0,Approve
+0.07321471,0,Approve
+0.07304155,0,Approve
+0.072636545,0,Approve
+0.07248231,0,Approve
+0.071882896,0,Approve
+0.07130037,0,Approve
+0.070943855,0,Approve
+0.07093887,0,Approve
+0.07079253,0,Approve
+0.07069608,0,Approve
+0.0706812,0,Approve
+0.07054206,0,Approve
+0.07039827,0,Approve
+0.07032534,0,Approve
+0.0700429,0,Approve
+0.06917676,0,Approve
+0.06894193,0,Approve
+0.06884099,1,Approve
+0.06881324,0,Approve
+0.06878897,0,Approve
+0.06827156,0,Approve
+0.067898504,0,Approve
+0.06746911,0,Approve
+0.06735347,0,Approve
+0.067015894,0,Approve
+0.06693027,0,Approve
+0.06687737,0,Approve
+0.06687443,0,Approve
+0.06673366,0,Approve
+0.06667714,0,Approve
+0.066668175,0,Approve
+0.06660245,0,Approve
+0.066546954,0,Approve
+0.06649135,0,Approve
+0.06591849,0,Approve
+0.065727524,0,Approve
+0.0652563,0,Approve
+0.06519209,0,Approve
+0.06481462,0,Approve
+0.06411401,0,Approve
+0.06375914,0,Approve
+0.06348019,0,Approve
+0.06329841,0,Approve
+0.06329052,0,Approve
+0.06325958,0,Approve
+0.063158005,0,Approve
+0.0630332,0,Approve
+0.06270439,0,Approve
+0.06258869,0,Approve
+0.062398627,0,Approve
+0.06234518,0,Approve
+0.06191485,0,Approve
+0.061840445,0,Approve
+0.061570723,0,Approve
+0.061468564,0,Approve
+0.061207812,0,Approve
+0.061170507,0,Approve
+0.061110687,0,Approve
+0.06096426,0,Approve
+0.060807586,0,Approve
+0.060642056,0,Approve
+0.060512245,0,Approve
+0.060497224,0,Approve
+0.06047373,0,Approve
+0.060364913,0,Approve
+0.060358815,0,Approve
+0.06001398,0,Approve
+0.059964433,0,Approve
+0.059832714,0,Approve
+0.0595331,0,Approve
+0.059402425,0,Approve
+0.059299823,0,Approve
+0.059246745,0,Approve
+0.05916644,0,Approve
+0.058854274,0,Approve
+0.058812615,0,Approve
+0.058611006,0,Approve
+0.0580734,0,Approve
+0.057881985,0,Approve
+0.05786987,0,Approve
+0.05762801,0,Approve
+0.05750147,0,Approve
+0.05731189,0,Approve
+0.057281964,0,Approve
+0.056748882,0,Approve
+0.056702778,0,Approve
+0.056698915,0,Approve
+0.056694627,0,Approve
+0.056692764,0,Approve
+0.056245483,1,Approve
+0.056058988,0,Approve
+0.055942416,0,Approve
+0.055872157,0,Approve
+0.055713177,0,Approve
+0.055454217,0,Approve
+0.055317763,0,Approve
+0.05529806,0,Approve
+0.055058215,0,Approve
+0.054972418,0,Approve
+0.054971814,0,Approve
+0.05468083,0,Approve
+0.054519214,0,Approve
+0.054155722,0,Approve
+0.05408089,0,Approve
+0.053833373,0,Approve
+0.053688955,0,Approve
+0.05341518,0,Approve
+0.053295273,0,Approve
+0.05323559,0,Approve
+0.05298577,0,Approve
+0.052938856,0,Approve
+0.05288202,0,Approve
+0.052742172,0,Approve
+0.052631993,0,Approve
+0.05261817,0,Approve
+0.052537944,0,Approve
+0.05242055,0,Approve
+0.052055947,0,Approve
+0.051908404,0,Approve
+0.051672515,0,Approve
+0.05160993,0,Approve
+0.05140198,0,Approve
+0.051330145,0,Approve
+0.051281545,0,Approve
+0.051098134,0,Approve
+0.05103616,0,Approve
+0.050919823,0,Approve
+0.050915897,0,Approve
+0.050842233,1,Approve
+0.050699905,0,Approve
+0.050429046,0,Approve
+0.050344814,0,Approve
+0.050132934,0,Approve
+0.04991429,0,Approve
+0.04977259,0,Approve
+0.049741108,0,Approve
+0.04951592,0,Approve
+0.04948371,0,Approve
+0.049411204,0,Approve
+0.049389917,0,Approve
+0.049350142,0,Approve
+0.049185093,0,Approve
+0.04891835,0,Approve
+0.048824638,0,Approve
+0.048761003,0,Approve
+0.048375864,0,Approve
+0.04823958,0,Approve
+0.04822514,0,Approve
+0.047889113,0,Approve
+0.047793064,0,Approve
+0.04766712,0,Approve
+0.047618873,0,Approve
+0.04655698,0,Approve
+0.046389196,0,Approve
+0.04631681,0,Approve
+0.04620726,0,Approve
+0.04595745,0,Approve
+0.045854192,0,Approve
+0.045493193,0,Approve
+0.045304038,0,Approve
+0.04530021,0,Approve
+0.0451069,0,Approve
+0.045104634,0,Approve
+0.0450154,0,Approve
+0.044621628,0,Approve
+0.04434638,0,Approve
+0.04415772,0,Approve
+0.04387462,0,Approve
+0.043839768,0,Approve
+0.043538313,0,Approve
+0.043339554,0,Approve
+0.043318793,0,Approve
+0.043217085,0,Approve
+0.0431263,0,Approve
+0.042782467,0,Approve
+0.042504307,0,Approve
+0.042374726,0,Approve
+0.04216679,0,Approve
+0.042089958,0,Approve
+0.042083748,0,Approve
+0.041953307,0,Approve
+0.041951034,0,Approve
+0.04193373,0,Approve
+0.04171639,0,Approve
+0.041534405,0,Approve
+0.04115048,0,Approve
+0.04112702,0,Approve
+0.040872212,0,Approve
+0.040817525,0,Approve
+0.040642753,0,Approve
+0.04049259,0,Approve
+0.040371716,0,Approve
+0.04030354,0,Approve
+0.040026404,0,Approve
+0.039965726,0,Approve
+0.03993315,0,Approve
+0.039845396,0,Approve
+0.039812457,0,Approve
+0.039434716,0,Approve
+0.039430004,0,Approve
+0.03909296,0,Approve
+0.03877845,0,Approve
+0.038582902,0,Approve
+0.038576085,0,Approve
+0.03856704,0,Approve
+0.03822508,0,Approve
+0.038010735,0,Approve
+0.03800397,0,Approve
+0.038000565,0,Approve
+0.037995327,0,Approve
+0.037955694,0,Approve
+0.037807044,0,Approve
+0.037408154,0,Approve
+0.03729721,0,Approve
+0.037169542,0,Approve
+0.037008964,0,Approve
+0.036311224,0,Approve
+0.036090385,0,Approve
+0.03557183,0,Approve
+0.035472926,0,Approve
+0.03476047,0,Approve
+0.034746923,0,Approve
+0.034703985,0,Approve
+0.03460689,0,Approve
+0.034580987,0,Approve
+0.034493838,0,Approve
+0.03418948,0,Approve
+0.0339024,0,Approve
+0.03385117,0,Approve
+0.03381363,0,Approve
+0.033553537,0,Approve
+0.03335646,0,Approve
+0.032943696,0,Approve
+0.032887626,0,Approve
+0.032761972,0,Approve
+0.032514032,0,Approve
+0.03250073,0,Approve
+0.03234925,0,Approve
+0.03232097,0,Approve
+0.03187066,0,Approve
+0.031715017,0,Approve
+0.031639833,0,Approve
+0.031581383,0,Approve
+0.031578887,0,Approve
+0.031532455,0,Approve
+0.031223536,0,Approve
+0.03059993,0,Approve
+0.029608138,0,Approve
+0.029590389,0,Approve
+0.029553242,0,Approve
+0.02954743,0,Approve
+0.029221546,0,Approve
+0.028789273,0,Approve
+0.027187614,0,Approve
+0.027007258,0,Approve
+0.026791977,0,Approve
+0.02643058,0,Approve
+0.0263007,0,Approve
+0.0260818,0,Approve
+0.025540086,0,Approve
+0.025316488,0,Approve
+0.025006175,0,Approve
+0.024492605,0,Approve
+0.023713425,0,Approve
+0.022642555,0,Approve
+0.022374755,0,Approve
+0.022374177,0,Approve
+0.022365324,0,Approve
+0.021949736,0,Approve
+0.021189405,0,Approve
+0.02110415,0,Approve
+0.02092932,0,Approve
+0.020100532,0,Approve
+0.019396883,0,Approve
+0.01902362,0,Approve
+0.018406725,0,Approve
+0.018223228,0,Approve
+0.017993927,0,Approve
+0.017753404,0,Approve
+0.017673645,0,Approve
+0.017345859,0,Approve
+0.017150937,0,Approve
+0.016826972,0,Approve
+0.01682381,0,Approve
+0.016781194,0,Approve
+0.016721403,0,Approve
+0.016702862,0,Approve
+0.01646426,0,Approve
+0.016379546,0,Approve
+0.016333906,0,Approve
+0.016288102,0,Approve
+0.016230509,0,Approve
+0.016179668,0,Approve
+0.01590884,0,Approve
+0.015601616,0,Approve
+0.015273381,0,Approve
+0.015235975,0,Approve
+0.014561722,0,Approve
+0.01452056,0,Approve
+0.014271438,0,Approve
+0.014148442,0,Approve
+0.014110177,0,Approve
+0.014003297,0,Approve
+0.013970417,0,Approve
+0.013959884,0,Approve
+0.0137377,0,Approve
+0.013736072,0,Approve
+0.013716139,0,Approve
+0.01370042,0,Approve
+0.013645343,0,Approve
+0.013621643,0,Approve
+0.013552992,0,Approve
+0.013452205,0,Approve
+0.013447004,0,Approve
+0.013332711,0,Approve
+0.013139294,0,Approve
+0.013085827,0,Approve
+0.01296748,0,Approve
+0.012957433,0,Approve
+0.012856405,0,Approve
+0.012715218,0,Approve
+0.012676098,0,Approve
+0.012650183,0,Approve
+0.012562245,0,Approve
+0.012509771,0,Approve
+0.012499154,0,Approve
+0.012484302,0,Approve
+0.012291156,0,Approve
+0.012262771,0,Approve
+0.01221072,0,Approve
+0.012202654,0,Approve
+0.012200533,0,Approve
+0.012188671,0,Approve
+0.012168748,0,Approve
+0.012157852,0,Approve
+0.012135549,0,Approve
+0.012131691,0,Approve
+0.0121311825,0,Approve
+0.012126817,0,Approve
+0.012109715,0,Approve
+0.012084949,0,Approve
+0.011954023,0,Approve
+0.011909606,0,Approve
+0.011792654,0,Approve
+0.01178692,0,Approve
+0.011781462,0,Approve
+0.011757797,0,Approve
+0.011750447,0,Approve
+0.011678333,0,Approve
+0.01157349,0,Approve
+0.0115581555,0,Approve
+0.011553215,0,Approve
+0.011516777,0,Approve
+0.011499246,0,Approve
+0.011496861,0,Approve
+0.01147837,0,Approve
+0.011372265,0,Approve
+0.0113366265,0,Approve
+0.01130428,0,Approve
+0.011299399,0,Approve
+0.011292976,0,Approve
+0.011266026,0,Approve
+0.01126362,0,Approve
+0.011260859,0,Approve
+0.011245054,0,Approve
+0.011238534,0,Approve
+0.011237973,0,Approve
+0.011205054,0,Approve
+0.011170007,0,Approve
+0.01113141,0,Approve
+0.011115905,0,Approve
+0.0110479705,0,Approve
+0.01099882,0,Approve
+0.010994418,0,Approve
+0.010984327,0,Approve
+0.010978153,0,Approve
+0.010973862,0,Approve
+0.010957344,0,Approve
+0.010946994,0,Approve
+0.0109335575,0,Approve
+0.010887436,0,Approve
+0.010874693,0,Approve
+0.010859051,0,Approve
+0.010854431,0,Approve
+0.010831096,0,Approve
+0.01080917,0,Approve
+0.0108090835,0,Approve
+0.010798051,0,Approve
+0.010773001,0,Approve
+0.010756229,0,Approve
+0.01075208,0,Approve
+0.010738835,0,Approve
+0.01073578,0,Approve
+0.010735563,0,Approve
+0.010733269,0,Approve
+0.010732474,0,Approve
+0.010711125,0,Approve
+0.010706069,0,Approve
+0.010697335,0,Approve
+0.010679934,0,Approve
+0.01067109,0,Approve
+0.0106413355,0,Approve
+0.010625362,0,Approve
+0.010589682,0,Approve
+0.010580023,0,Approve
+0.01057397,0,Approve
+0.010568439,0,Approve
+0.01055873,0,Approve
+0.010549573,0,Approve
+0.010547363,0,Approve
+0.010542169,0,Approve
+0.01052999,0,Approve
+0.01051649,0,Approve
+0.010484861,0,Approve
+0.010445417,0,Approve
+0.010441563,0,Approve
+0.010433953,0,Approve
+0.010419533,0,Approve
+0.010414912,0,Approve
+0.01040496,0,Approve
+0.010398864,0,Approve
+0.010395253,0,Approve
+0.010391457,0,Approve
+0.010389323,0,Approve
+0.010343014,0,Approve
+0.010342175,0,Approve
+0.010325556,0,Approve
+0.010319422,0,Approve
+0.01031155,0,Approve
+0.01030924,0,Approve
+0.01030795,0,Approve
+0.010305976,0,Approve
+0.01030121,0,Approve
+0.010288962,0,Approve
+0.010281254,0,Approve
+0.010271253,0,Approve
+0.01025677,0,Approve
+0.010241948,0,Approve
+0.010240992,0,Approve
+0.010226903,0,Approve
+0.010220923,0,Approve
+0.010211039,0,Approve
+0.010207989,0,Approve
+0.01020468,0,Approve
+0.010200346,0,Approve
+0.010195168,0,Approve
+0.010189721,0,Approve
+0.010188577,0,Approve
+0.010177004,0,Approve
+0.0101469215,0,Approve
+0.010142143,0,Approve
+0.010140506,0,Approve
+0.010103626,0,Approve
+0.010094769,0,Approve
+0.010090848,0,Approve
+0.01007949,0,Approve
+0.010077197,0,Approve
+0.010073284,0,Approve
+0.010072984,0,Approve
+0.010066476,0,Approve
+0.010057405,0,Approve
+0.01004826,0,Approve
+0.010043703,0,Approve
+0.010005968,0,Approve
+0.009992274,0,Approve
+0.009985474,0,Approve
+0.009984211,0,Approve
+0.009979216,0,Approve
+0.009969276,0,Approve
+0.009954016,0,Approve
+0.009948627,0,Approve
+0.009942059,0,Approve
+0.009928776,0,Approve
+0.009926807,0,Approve
+0.009923059,0,Approve
+0.009922759,0,Approve
+0.009922051,0,Approve
+0.009919274,0,Approve
+0.009917317,0,Approve
+0.009907485,0,Approve
+0.0099055525,0,Approve
+0.009905095,0,Approve
+0.009898419,0,Approve
+0.009894859,0,Approve
+0.0098733,0,Approve
+0.009872474,0,Approve
+0.009867731,0,Approve
+0.00986637,0,Approve
+0.009854228,0,Approve
+0.009853894,0,Approve
+0.009840708,0,Approve
+0.009823004,0,Approve
+0.009814362,0,Approve
+0.009810739,0,Approve
+0.009800891,0,Approve
+0.009790244,0,Approve
+0.009786117,0,Approve
+0.009770728,0,Approve
+0.0097560445,0,Approve
+0.0097511215,0,Approve
+0.009740748,0,Approve
+0.009737782,0,Approve
+0.009724287,0,Approve
+0.009722887,0,Approve
+0.00971932,0,Approve
+0.009714864,0,Approve
+0.009705996,0,Approve
+0.009703655,0,Approve
+0.009696559,0,Approve
+0.009684603,0,Approve
+0.0096833585,0,Approve
+0.009683038,0,Approve
+0.009676351,0,Approve
+0.009667911,0,Approve
+0.009666929,0,Approve
+0.009666326,0,Approve
+0.009656827,0,Approve
+0.009656293,0,Approve
+0.009654279,0,Approve
+0.009645884,0,Approve
+0.009641549,0,Approve
+0.009639168,0,Approve
+0.009635336,0,Approve
+0.009629199,0,Approve
+0.009627713,0,Approve
+0.009623789,0,Approve
+0.009613134,0,Approve
+0.009612552,0,Approve
+0.009601237,0,Approve
+0.009595539,0,Approve
+0.0095932735,0,Approve
+0.009592065,0,Approve
+0.009589442,0,Approve
+0.009586765,0,Approve
+0.009586557,0,Approve
+0.009573491,0,Approve
+0.009566928,0,Approve
+0.009561454,0,Approve
+0.009558113,0,Approve
+0.009540898,0,Approve
+0.0095346,0,Approve
+0.009528965,0,Approve
+0.00952698,0,Approve
+0.009515656,0,Approve
+0.009505307,0,Approve
+0.009501698,0,Approve
+0.009479578,0,Approve
+0.009463517,0,Approve
+0.00945526,0,Approve
+0.009450072,0,Approve
+0.009443232,0,Approve
+0.009443187,0,Approve
+0.009442314,0,Approve
+0.0094392,0,Approve
+0.009434445,0,Approve
+0.009418358,0,Approve
+0.009417708,0,Approve
+0.009402395,0,Approve
+0.009402395,0,Approve
+0.009395852,0,Approve
+0.009379962,0,Approve
+0.009375308,0,Approve
+0.009367494,0,Approve
+0.009361805,0,Approve
+0.00935612,0,Approve
+0.009347501,0,Approve
+0.009333206,0,Approve
+0.009325784,0,Approve
+0.009325106,0,Approve
+0.009324991,0,Approve
+0.009321036,0,Approve
+0.009307938,0,Approve
+0.009301436,0,Approve
+0.009296095,0,Approve
+0.009252465,0,Approve
+0.009250774,0,Approve
+0.009241248,0,Approve
+0.009224785,0,Approve
+0.009224654,0,Approve
+0.009214419,0,Approve
+0.009205386,0,Approve
+0.0091794105,0,Approve
+0.009173575,0,Approve
+0.009172331,0,Approve
+0.009168539,0,Approve
+0.009160079,0,Approve
+0.009139069,0,Approve
+0.009133652,0,Approve
+0.009128548,0,Approve
+0.009118797,0,Approve
+0.009109861,0,Approve
+0.009063004,0,Approve
+0.00906258,0,Approve
+0.00906258,0,Approve
+0.009047198,0,Approve
+0.009037691,0,Approve
+0.008998819,0,Approve
+0.008993054,0,Approve
+0.008988958,0,Approve
+0.008970537,0,Approve
+0.008952374,0,Approve
+0.008939831,0,Approve
+0.008926309,0,Approve
+0.008923985,0,Approve
+0.008913292,0,Approve
+0.008904324,0,Approve
+0.008901383,0,Approve
+0.008896051,0,Approve
+0.008886958,0,Approve
+0.008878788,0,Approve
+0.008858915,0,Approve
+0.008856935,0,Approve
+0.008854195,0,Approve
+0.008851165,0,Approve
+0.008845344,0,Approve
+0.008837605,0,Approve
+0.008821877,0,Approve
+0.008800492,0,Approve
+0.008793037,0,Approve
+0.008767934,0,Approve
+0.008756892,0,Approve
+0.008750669,0,Approve
+0.008744979,0,Approve
+0.008742904,0,Approve
+0.008735185,0,Approve
+0.008727025,0,Approve
+0.008722283,0,Approve
+0.008708054,0,Approve
+0.008698941,0,Approve
+0.008680576,0,Approve
+0.00866508,0,Approve
+0.008654813,0,Approve
+0.008632903,0,Approve
+0.00861574,0,Approve
+0.008605022,0,Approve
+0.008603489,0,Approve
+0.008547914,0,Approve
+0.008530926,0,Approve
+0.008530551,0,Approve
+0.008504148,0,Approve
+0.008486495,0,Approve
+0.008481145,0,Approve
+0.008473922,0,Approve
+0.008466825,0,Approve
+0.008445407,0,Approve
+0.008420109,0,Approve
+0.008417617,0,Approve
+0.008412799,0,Approve
+0.00840561,0,Approve
+0.008388164,0,Approve
+0.008381567,0,Approve
+0.0083622215,0,Approve
+0.008354681,0,Approve
+0.008291178,0,Approve
+0.008287329,0,Approve
+0.0082776435,0,Approve
+0.008209282,0,Approve
+0.008178038,0,Approve
+0.008151733,0,Approve
+0.00811454,0,Approve
+0.008075967,0,Approve
+0.008032565,0,Approve
+0.0080167595,0,Approve
+0.007987723,0,Approve
+0.007944478,0,Approve
+0.007855317,0,Approve
+0.007834221,0,Approve
+0.007780573,0,Approve
+0.007770099,0,Approve
+0.0077621182,0,Approve
+0.0075979265,0,Approve
+0.007516085,0,Approve
+0.007199706,0,Approve
+0.0071748877,0,Approve

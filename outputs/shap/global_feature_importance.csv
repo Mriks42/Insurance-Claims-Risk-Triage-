@@ -1,0 +1,148 @@
+feature,mean_abs_shap
+BasePolicy_Liability,0.10807399
+Fault_Policy Holder,0.095584705
+PolicyType_Sedan - Collision,0.0139176585
+Age,0.010507364
+AddressChange_Claim_2 to 3 years,0.007965149
+BasePolicy_All Perils,0.00568307
+MonthClaimed_Nov,0.005100572
+Deductible,0.0050088204
+Month_Dec,0.0031375468
+VehicleCategory_Sport,0.0030648448
+Year,0.0026389395
+Month_Jul,0.0025257384
+Make_Chevrolet,0.0024704821
+Make_Toyota,0.0022321441
+Make_VW,0.0022030124
+RepNumber,0.0019537648
+DayOfWeekClaimed_Tuesday,0.0016518052
+PoliceReportFiled_No,0.0015781308
+MonthClaimed_Apr,0.0015227004
+DayOfWeek_Sunday,0.0013852742
+NumberOfSuppliments_none,0.0012096347
+DriverRating,0.0010560278
+DayOfWeekClaimed_Wednesday,0.0010047816
+AgeOfPolicyHolder_36 to 40,0.0008811673
+AgeOfVehicle_6 years,0.0008616332
+WeekOfMonth,0.0008230888
+MonthClaimed_Oct,0.000732322
+Make_Accura,0.000697025
+Month_Oct,0.00062256644
+AgeOfVehicle_4 years,0.0005610158
+AgeOfVehicle_5 years,0.00055695634
+PastNumberOfClaims_none,0.0004067408
+Days_Policy_Claim_15 to 30,0.00038118492
+VehiclePrice_20000 to 29000,0.00032881243
+Make_Mercury,0.00028507557
+Month_Sep,0.00022490902
+DayOfWeekClaimed_Saturday,0.000193499
+Month_May,0.0
+Month_Mar,0.0
+Month_Jan,0.0
+Month_Apr,0.0
+Month_Aug,0.0
+Month_Feb,0.0
+WeekOfMonthClaimed,0.0
+Month_Nov,0.0
+Month_Jun,0.0
+Make_Honda,0.0
+Make_Lexus,0.0
+Make_Jaguar,0.0
+DayOfWeek_Wednesday,0.0
+DayOfWeek_Monday,0.0
+DayOfWeekClaimed_Monday,0.0
+DayOfWeekClaimed_Friday,0.0
+DayOfWeekClaimed_0,0.0
+AccidentArea_Urban,0.0
+AccidentArea_Rural,0.0
+Make_Porche,0.0
+Make_Saab,0.0
+MonthClaimed_0,0.0
+MonthClaimed_Dec,0.0
+MonthClaimed_Aug,0.0
+MonthClaimed_Feb,0.0
+MonthClaimed_Jan,0.0
+MonthClaimed_Jun,0.0
+MonthClaimed_Jul,0.0
+DayOfWeekClaimed_Sunday,0.0
+DayOfWeekClaimed_Thursday,0.0
+MonthClaimed_Mar,0.0
+MonthClaimed_May,0.0
+Sex_Male,0.0
+Make_Ford,0.0
+Make_Pontiac,0.0
+Make_Mazda,0.0
+Make_Mecedes,0.0
+Make_Nisson,0.0
+Make_Saturn,0.0
+Make_BMW,0.0
+Make_Dodge,0.0
+Make_Ferrari,0.0
+DayOfWeek_Saturday,0.0
+DayOfWeek_Thursday,0.0
+DayOfWeek_Tuesday,0.0
+DayOfWeek_Friday,0.0
+PolicyType_Utility - All Perils,0.0
+PolicyType_Sport - Liability,0.0
+PolicyType_Sport - Collision,0.0
+PolicyType_Sport - All Perils,0.0
+PolicyType_Sedan - Liability,0.0
+PolicyType_Sedan - All Perils,0.0
+Fault_Third Party,0.0
+MaritalStatus_Widow,0.0
+Sex_Female,0.0
+MaritalStatus_Single,0.0
+MaritalStatus_Married,0.0
+MaritalStatus_Divorced,0.0
+MonthClaimed_Sep,0.0
+VehiclePrice_less than 20000,0.0
+VehiclePrice_60000 to 69000,0.0
+PolicyType_Utility - Liability,0.0
+Days_Policy_Accident_none,0.0
+Days_Policy_Accident_more than 30,0.0
+Days_Policy_Accident_8 to 15,0.0
+Days_Policy_Accident_15 to 30,0.0
+Days_Policy_Accident_1 to 7,0.0
+Days_Policy_Claim_none,0.0
+Days_Policy_Claim_more than 30,0.0
+Days_Policy_Claim_8 to 15,0.0
+PastNumberOfClaims_more than 4,0.0
+PastNumberOfClaims_2 to 4,0.0
+VehiclePrice_more than 69000,0.0
+PolicyType_Utility - Collision,0.0
+VehicleCategory_Sedan,0.0
+VehicleCategory_Utility,0.0
+VehiclePrice_30000 to 39000,0.0
+VehiclePrice_40000 to 59000,0.0
+AgeOfVehicle_new,0.0
+AgeOfVehicle_more than 7,0.0
+AgeOfVehicle_7 years,0.0
+AgeOfVehicle_2 years,0.0
+AgeOfVehicle_3 years,0.0
+PastNumberOfClaims_1,0.0
+AgeOfPolicyHolder_21 to 25,0.0
+AgeOfPolicyHolder_16 to 17,0.0
+AgeOfPolicyHolder_51 to 65,0.0
+AgeOfPolicyHolder_over 65,0.0
+PoliceReportFiled_Yes,0.0
+WitnessPresent_No,0.0
+AgeOfPolicyHolder_26 to 30,0.0
+AgeOfPolicyHolder_31 to 35,0.0
+AgeOfPolicyHolder_41 to 50,0.0
+AgeOfPolicyHolder_18 to 20,0.0
+NumberOfSuppliments_1 to 2,0.0
+AgentType_Internal,0.0
+AgentType_External,0.0
+WitnessPresent_Yes,0.0
+AddressChange_Claim_1 year,0.0
+AddressChange_Claim_4 to 8 years,0.0
+NumberOfSuppliments_more than 5,0.0
+NumberOfSuppliments_3 to 5,0.0
+AddressChange_Claim_under 6 months,0.0
+AddressChange_Claim_no change,0.0
+NumberOfCars_1 vehicle,0.0
+NumberOfCars_2 vehicles,0.0
+NumberOfCars_5 to 8,0.0
+NumberOfCars_3 to 4,0.0
+NumberOfCars_more than 8,0.0
+BasePolicy_Collision,0.0
