@@ -177,20 +177,20 @@ The dramatic drop confirms the original model was **memorizing row identifiers**
 
 ## SHAP Explainability
 
-## Top 10 Global Feature Importances (Mean |SHAP|)
+## Top 10 Global Feature Importances (Mean \|SHAP\|)
 
-| Rank | Feature                         | Mean |SHAP| |
-|------|----------------------------------|-------------|
-| 1    | BasePolicy = Liability           | 0.1081      |
-| 2    | Fault = Policy Holder            | 0.0956      |
-| 3    | PolicyType = Sedan - Collision   | 0.0139      |
-| 4    | Age                              | 0.0105      |
-| 5    | AddressChange = 2 to 3 years     | 0.0080      |
-| 6    | BasePolicy = All Perils          | 0.0057      |
-| 7    | MonthClaimed = Nov               | 0.0051      |
-| 8    | Deductible                       | 0.0050      |
-| 9    | Month = Dec                      | 0.0031      |
-| 10   | VehicleCategory = Sport          | 0.0031      |
+| Rank | Feature                         | Mean \|SHAP\| |
+|------|----------------------------------|--------------|
+| 1    | BasePolicy = Liability           | 0.1081       |
+| 2    | Fault = Policy Holder            | 0.0956       |
+| 3    | PolicyType = Sedan - Collision   | 0.0139       |
+| 4    | Age                              | 0.0105       |
+| 5    | AddressChange = 2 to 3 years     | 0.0080       |
+| 6    | BasePolicy = All Perils          | 0.0057       |
+| 7    | MonthClaimed = Nov               | 0.0051       |
+| 8    | Deductible                       | 0.0050       |
+| 9    | Month = Dec                      | 0.0031       |
+| 10   | VehicleCategory = Sport          | 0.0031       |
 
 ### Example Reason Codes (Rank 1 SIU Claim)
 
