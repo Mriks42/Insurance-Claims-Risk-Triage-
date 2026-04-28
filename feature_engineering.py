@@ -207,9 +207,45 @@ def engineer_features(df):
     df["PolicyAge_x_ClaimDelay"] = df["Days_Policy_Accident_Num"] * df["Days_Policy_Claim_Num"]
 
     # ----------------------------------------------------------
-    # 5) Count-based features
+    # 5) Guideline-grounded combination flags
+    #    (directly derived from fraud_red_flags.md and
+    #     policy_coverage_standards.md)
     # ----------------------------------------------------------
-    # Total risk flags
+
+    # Liability policy + no police report — highest-risk config per guidelines
+    df["Liability_NoPolice"] = (
+        (df["BasePolicy"] == "Liability") & (df["PoliceReportFiled"] == "No")
+    ).astype(int)
+
+    # High-value vehicle (>$60k) with liability-only coverage
+    df["HighValue_Liability"] = (
+        (df["VehiclePrice_Num"] >= 60000) & (df["BasePolicy"] == "Liability")
+    ).astype(int)
+
+    # Sport vehicle + young driver — explicitly flagged in guidelines
+    df["Sport_YoungDriver"] = (
+        (df["VehicleCategory"] == "Sport") & (df["YoungDriver"] == 1)
+    ).astype(int)
+
+    # Very early claim: accident within first 7 days of policy inception
+    # "none" in Days_Policy_Accident means < 7 days — mandatory SIU per guidelines
+    df["VeryEarlyClaimFlag"] = (df["Days_Policy_Accident"] == "none").astype(int)
+    df["EarlyClaimFlag"] = (
+        df["Days_Policy_Accident"].isin(["none", "1 to 7"])
+    ).astype(int)
+
+    # High supplement count (3+) — cost inflation indicator per guidelines
+    df["HighSupplements"] = (df["NumberOfSuppliments_Num"] >= 4).astype(int)
+
+    # External agent + no police report — historically higher fraud rate
+    df["ExternalAgent_NoPolice"] = (
+        (df["ExternalAgent"] == 1) & (df["NoPoliceReport"] == 1)
+    ).astype(int)
+
+    # ----------------------------------------------------------
+    # 6) Count-based features
+    # ----------------------------------------------------------
+    # Total risk flags (expanded with new guideline flags)
     df["RiskFlagCount"] = (
         df["NoPoliceReport"] +
         df["NoWitness"] +
@@ -218,7 +254,13 @@ def engineer_features(df):
         df["HighDeductible"] +
         df["YoungDriver"] +
         df["HasPastClaims"] +
-        df["RecentAddressChange"]
+        df["RecentAddressChange"] +
+        df["Liability_NoPolice"] +
+        df["HighValue_Liability"] +
+        df["Sport_YoungDriver"] +
+        df["VeryEarlyClaimFlag"] +
+        df["HighSupplements"] +
+        df["ExternalAgent_NoPolice"]
     )
 
     return df
@@ -250,6 +292,11 @@ def get_engineered_numeric_cols():
         "YoungDriver", "HasPastClaims", "RecentAddressChange",
         "Age_x_Deductible", "Fault_NoPolice", "PriceToDeductible",
         "Age_x_PastClaims", "Cars_x_Suppliments", "PolicyAge_x_ClaimDelay",
+        # Guideline-grounded combination flags
+        "Liability_NoPolice", "HighValue_Liability", "Sport_YoungDriver",
+        "VeryEarlyClaimFlag", "EarlyClaimFlag", "HighSupplements",
+        "ExternalAgent_NoPolice",
+        # Composite
         "RiskFlagCount",
     ]
 

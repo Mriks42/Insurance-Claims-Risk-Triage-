@@ -2,8 +2,9 @@
 Modeling Module
 ===============
 Handles: training Logistic Regression baseline, XGBoost, LightGBM,
-evaluation (PR-AUC, Precision@K, Recall@K, confusion matrix),
-model comparison, triage bucket analysis, and saving all results.
+evaluation (PR-AUC, ROC-AUC, Precision@K, Recall@K, calibration,
+confusion matrix at operational threshold), model comparison,
+triage bucket analysis with cost-benefit ROI, and saving all results.
 
 Reproduces everything from the notebook's Phase 2-3 (Weeks 3-6).
 
@@ -26,8 +27,11 @@ import matplotlib.pyplot as plt
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
+from sklearn.calibration import CalibratedClassifierCV, calibration_curve
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.metrics import (
     average_precision_score,
+    roc_auc_score,
     precision_recall_curve,
     confusion_matrix,
     classification_report,
@@ -36,6 +40,7 @@ from sklearn.metrics import (
 from config import (
     RANDOM_STATE, XGB_PARAMS,
     PCT_SIU, PCT_MANUAL,
+    AVG_FRAUD_LOSS, SIU_COST, MANUAL_COST,
     METRICS_DIR, PLOTS_DIR, MODELS_DIR,
 )
 from data_preprocessing import get_processed_data, build_preprocessor
@@ -59,48 +64,183 @@ def recall_at_k(y_true, y_prob, k):
 def evaluate_model(y_true, y_prob, model_name="Model", pct_review=0.05,
                    save_plot=True, plot_dir=PLOTS_DIR):
     """
-    Full evaluation: PR-AUC, Precision@K, Recall@K, confusion matrix,
-    classification report, PR curve plot. Returns a summary dict.
+    Full evaluation:
+      - PR-AUC (primary, imbalance-aware)
+      - ROC-AUC (secondary, for literature comparison)
+      - Precision@K / Recall@K at operational review rate
+      - Confusion matrix at OPERATIONAL threshold (top pct_review%), not 0.5
+      - Classification report at operational threshold
+      - PR curve plot
+    Returns a summary dict.
     """
     y_true, y_prob = np.array(y_true), np.array(y_prob)
 
-    pr_auc = float(average_precision_score(y_true, y_prob))
+    pr_auc  = float(average_precision_score(y_true, y_prob))
+    roc_auc = float(roc_auc_score(y_true, y_prob))
+
     k = max(1, int(pct_review * len(y_true)))
     prec_k = precision_at_k(y_true, y_prob, k)
-    rec_k = recall_at_k(y_true, y_prob, k)
+    rec_k  = recall_at_k(y_true, y_prob, k)
 
-    y_pred_05 = (y_prob >= 0.5).astype(int)
-    cm = confusion_matrix(y_true, y_pred_05)
-    report = classification_report(y_true, y_pred_05, digits=4, zero_division=0)
+    # Operational threshold = score at the top-pct_review percentile cutoff
+    op_threshold = float(np.percentile(y_prob, 100 * (1 - pct_review)))
+    y_pred_op = (y_prob >= op_threshold).astype(int)
+    cm     = confusion_matrix(y_true, y_pred_op)
+    report = classification_report(y_true, y_pred_op, digits=4, zero_division=0)
 
     print(f"\n{'=' * 10} {model_name.upper()} {'=' * 10}")
-    print(f"PR-AUC:        {pr_auc:.4f}")
-    print(f"Precision@5%:  {prec_k:.4f}")
-    print(f"Recall@5%:     {rec_k:.4f}")
-    print(f"Confusion Matrix @ 0.5:\n{cm}")
-    print(f"\nClassification Report @ 0.5:\n{report}")
+    print(f"PR-AUC:              {pr_auc:.4f}")
+    print(f"ROC-AUC:             {roc_auc:.4f}")
+    print(f"Precision@{int(pct_review*100)}%:       {prec_k:.4f}")
+    print(f"Recall@{int(pct_review*100)}%:          {rec_k:.4f}")
+    print(f"Operational threshold (top {int(pct_review*100)}%): {op_threshold:.4f}")
+    print(f"Confusion Matrix @ operational threshold:\n{cm}")
+    print(f"\nClassification Report @ operational threshold:\n{report}")
 
     # PR curve
     if save_plot:
         precision, recall, _ = precision_recall_curve(y_true, y_prob)
         plt.figure(figsize=(8, 6))
-        plt.plot(recall, precision)
+        plt.plot(recall, precision, lw=2)
+        plt.axhline(y=y_true.mean(), color="gray", linestyle="--",
+                    label=f"Random baseline ({y_true.mean():.3f})")
         plt.xlabel("Recall")
         plt.ylabel("Precision")
-        plt.title(f"Precision-Recall Curve ({model_name})")
-        plt.grid(True)
+        plt.title(f"Precision-Recall Curve ({model_name})\nPR-AUC={pr_auc:.4f}")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        fname = os.path.join(plot_dir, f"pr_curve_{model_name.lower().replace(' ', '_')}.png")
+        fname = os.path.join(
+            plot_dir,
+            f"pr_curve_{model_name.lower().replace(' ', '_').replace('(', '').replace(')', '')}.png"
+        )
         plt.savefig(fname, dpi=150)
         plt.close()
         print(f"Saved PR curve: {fname}")
 
     return {
-        "Model": model_name,
-        "PR_AUC": pr_auc,
-        "Precision_at_5pct": prec_k,
-        "Recall_at_5pct": rec_k,
+        "Model":              model_name,
+        "PR_AUC":             pr_auc,
+        "ROC_AUC":            roc_auc,
+        "Precision_at_5pct":  prec_k,
+        "Recall_at_5pct":     rec_k,
+        "Op_Threshold":       op_threshold,
     }
+
+
+# ============================================================
+# Calibration
+# ============================================================
+def calibrate_model(model, X_val_t, y_val, method="isotonic"):
+    """
+    Fit an isotonic (or sigmoid) calibrator on the validation set.
+    Compatible with sklearn >= 1.2 which removed cv='prefit'.
+    Wraps the already-trained model using set_params to freeze it.
+    """
+    from sklearn.frozen import FrozenEstimator
+    try:
+        # sklearn >= 1.4 has FrozenEstimator
+        frozen = FrozenEstimator(model)
+        cal = CalibratedClassifierCV(frozen, method=method, cv="prefit")
+    except ImportError:
+        # Fallback: pass cv=None and fit on val set directly
+        cal = CalibratedClassifierCV(model, method=method, cv=2)
+        # Use a tiny stratified split so it doesn't refit the base model
+        from sklearn.model_selection import StratifiedShuffleSplit
+        cal = CalibratedClassifierCV(model, method=method)
+        cal.calibrated_classifiers_ = None
+
+    # Universal approach that works across all sklearn versions:
+    # manually build a calibrated wrapper using the val set
+    from sklearn.calibration import _CalibratedClassifier
+    cal = CalibratedClassifierCV(model, method=method, cv=2)
+    # Override: just fit a calibrator on top of existing predictions
+    y_prob_raw = model.predict_proba(X_val_t)[:, 1].reshape(-1, 1)
+
+    if method == "isotonic":
+        from sklearn.isotonic import IsotonicRegression
+        calibrator = IsotonicRegression(out_of_bounds="clip")
+        calibrator.fit(y_prob_raw.ravel(), y_val)
+    else:
+        from sklearn.linear_model import LogisticRegression as _LR
+        calibrator = _LR(C=1.0)
+        calibrator.fit(y_prob_raw, y_val)
+
+    # Wrap into a simple callable class
+    class _ManualCalibrated:
+        def __init__(self, base, cal, method):
+            self.base = base
+            self.cal  = cal
+            self.method = method
+
+        def predict_proba(self, X):
+            raw = self.base.predict_proba(X)[:, 1]
+            if self.method == "isotonic":
+                cal_prob = self.cal.predict(raw)
+            else:
+                cal_prob = self.cal.predict_proba(raw.reshape(-1, 1))[:, 1]
+            cal_prob = np.clip(cal_prob, 0, 1)
+            return np.column_stack([1 - cal_prob, cal_prob])
+
+    wrapper = _ManualCalibrated(model, calibrator, method)
+    print(f"  Calibration fitted ({method}) on {len(y_val)} validation samples.")
+    return wrapper
+
+
+def plot_calibration_curve(y_true, y_prob_raw, y_prob_cal, model_name, save_dir=PLOTS_DIR):
+    """Plot reliability diagram: raw vs calibrated probabilities."""
+    fig, ax = plt.subplots(figsize=(7, 6))
+
+    for probs, label, color in [
+        (y_prob_raw, "Uncalibrated", "steelblue"),
+        (y_prob_cal, "Calibrated (isotonic)", "darkorange"),
+    ]:
+        frac_pos, mean_pred = calibration_curve(y_true, probs, n_bins=10)
+        ax.plot(mean_pred, frac_pos, "s-", label=label, color=color)
+
+    ax.plot([0, 1], [0, 1], "k--", label="Perfect calibration")
+    ax.set_xlabel("Mean predicted probability")
+    ax.set_ylabel("Fraction of positives")
+    ax.set_title(f"Reliability Diagram — {model_name}")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    fname = os.path.join(save_dir, f"calibration_{model_name.lower().replace(' ', '_')}.png")
+    plt.savefig(fname, dpi=150)
+    plt.close()
+    print(f"Saved calibration curve: {fname}")
+
+
+# ============================================================
+# Cross-validation score
+# ============================================================
+def cross_validate_model(model, X_train_t, y_train, cv_folds=5):
+    """
+    Run stratified k-fold CV and report mean ± std PR-AUC.
+    Creates a CV-safe clone with early_stopping_rounds disabled so
+    cross_val_score (which has no eval_set) doesn't error.
+    Returns (mean, std).
+    """
+    from sklearn.base import clone
+
+    # Build a CV-safe clone: copy all params but disable early stopping
+    params = model.get_params()
+    params["early_stopping_rounds"] = None
+    # Fix n_estimators to the best iteration found during training
+    if hasattr(model, "best_iteration") and model.best_iteration is not None:
+        params["n_estimators"] = model.best_iteration + 1
+    else:
+        params["n_estimators"] = 300   # sensible fallback
+
+    cv_model = model.__class__(**params)
+
+    cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=RANDOM_STATE)
+    scores = cross_val_score(
+        cv_model, X_train_t, y_train,
+        cv=cv, scoring="average_precision", n_jobs=-1,
+    )
+    print(f"  {cv_folds}-fold CV PR-AUC: {scores.mean():.4f} ± {scores.std():.4f}")
+    return float(scores.mean()), float(scores.std())
 
 
 # ============================================================
@@ -158,7 +298,7 @@ def train_lightgbm(X_train_t, y_train, X_val_t, y_val, scale_pos_weight):
         from lightgbm import LGBMClassifier
 
     model = LGBMClassifier(
-        n_estimators=1000,
+        n_estimators=2000,
         learning_rate=0.05,
         num_leaves=31,
         subsample=0.8,
@@ -196,17 +336,22 @@ def compare_models(summaries):
 
 
 # ============================================================
-# Triage bucket analysis
+# Triage bucket analysis with cost-benefit ROI
 # ============================================================
-def triage_analysis(y_true, y_prob, model_name="Best Model"):
-    """Assign claims to SIU / Manual Review / Approve buckets and report fraud rates."""
+def triage_analysis(y_true, y_prob, model_name="Best Model",
+                    avg_fraud_loss=AVG_FRAUD_LOSS,
+                    siu_cost=SIU_COST, manual_cost=MANUAL_COST):
+    """
+    Assign claims to SIU / Manual Review / Approve buckets, report fraud
+    rates per bucket, and compute estimated cost-benefit ROI.
+    """
     results = pd.DataFrame({
         "risk_score": y_prob,
-        "y_true": np.array(y_true),
+        "y_true":     np.array(y_true),
     }).sort_values("risk_score", ascending=False).reset_index(drop=True)
 
     n = len(results)
-    siu_cut = int(PCT_SIU * n)
+    siu_cut    = int(PCT_SIU * n)
     manual_cut = int((PCT_SIU + PCT_MANUAL) * n)
 
     def assign_bucket(i):
@@ -226,10 +371,37 @@ def triage_analysis(y_true, y_prob, model_name="Best Model"):
     fraud_rates = results.groupby("triage_bucket")["y_true"].mean().sort_index()
     print(fraud_rates.to_string())
 
+    # ── Cost-benefit ROI ──────────────────────────────────────
+    siu_df    = results[results["triage_bucket"] == "SIU"]
+    manual_df = results[results["triage_bucket"] == "Manual Review"]
+
+    fraud_caught = int(siu_df["y_true"].sum() + manual_df["y_true"].sum())
+    savings      = fraud_caught * avg_fraud_loss
+    costs        = len(siu_df) * siu_cost + len(manual_df) * manual_cost
+    net_benefit  = savings - costs
+    roi          = savings / max(costs, 1)
+
+    print(f"\n── Cost-Benefit ROI ──")
+    print(f"  Fraud claims caught (SIU + Manual): {fraud_caught}")
+    print(f"  Estimated fraud losses prevented:   ${savings:>12,.0f}")
+    print(f"  Investigation costs:                ${costs:>12,.0f}")
+    print(f"  Net benefit:                        ${net_benefit:>12,.0f}")
+    print(f"  ROI:                                {roi:.1f}x")
+
+    roi_summary = {
+        "fraud_caught": fraud_caught,
+        "savings_usd":  savings,
+        "costs_usd":    costs,
+        "net_benefit":  net_benefit,
+        "roi_x":        roi,
+    }
+
     results.to_csv(os.path.join(METRICS_DIR, "triage_results.csv"), index=False)
     fraud_rates.to_csv(os.path.join(METRICS_DIR, "triage_fraud_rates.csv"))
+    with open(os.path.join(METRICS_DIR, "triage_roi.json"), "w") as f:
+        json.dump(roi_summary, f, indent=2)
 
-    return results
+    return results, roi_summary
 
 
 # ============================================================
@@ -276,13 +448,19 @@ def precision_recall_at_k_sweep(y_true, y_prob, pcts=None):
 # Save best model
 # ============================================================
 def save_best_model(model, model_name):
-    """Save the best model to disk."""
-    import pickle
-    path = os.path.join(MODELS_DIR, f"best_model_{model_name.lower().replace(' ', '_')}.pkl")
-    with open(path, "wb") as f:
-        pickle.dump(model, f)
+    """Save the best model to disk using joblib (faster for numpy-heavy objects)."""
+    import joblib
+    path = os.path.join(MODELS_DIR, f"best_model_{model_name.lower().replace(' ', '_')}.joblib")
+    joblib.dump(model, path)
     print(f"\nSaved best model: {path}")
     return path
+
+
+def load_best_model(model_name):
+    """Load a saved model from disk."""
+    import joblib
+    path = os.path.join(MODELS_DIR, f"best_model_{model_name.lower().replace(' ', '_')}.joblib")
+    return joblib.load(path)
 
 
 # ============================================================
@@ -298,11 +476,9 @@ def run_full_pipeline():
     data = get_processed_data()
 
     # 2) Train Logistic Regression baseline
-    # Note: LR uses the raw X_train/X_val with the preprocessor in a Pipeline
     print("\n" + "-" * 40)
     print("Training Logistic Regression baseline...")
     print("-" * 40)
-    # Build a FRESH preprocessor for the LR pipeline (to avoid conflicts)
     lr_preprocessor, _, _ = build_preprocessor(data["X_train"])
     lr_model, lr_val_prob, lr_summary = train_logistic_regression(
         lr_preprocessor, data["X_train"], data["y_train"], data["X_val"], data["y_val"]
@@ -340,7 +516,23 @@ def run_full_pipeline():
     best_model, best_val_prob, best_summary = gbm_candidates[best_name]
     print(f"\n[OK] Best GBM model: {best_name} (PR-AUC: {best_summary['PR_AUC']:.4f})")
 
-    # 7) Evaluate best model on TEST set
+    # 7) Cross-validate best model
+    print("\n" + "-" * 40)
+    print(f"Cross-validating {best_name}...")
+    print("-" * 40)
+    cv_mean, cv_std = cross_validate_model(best_model, data["X_train_t"], data["y_train"])
+
+    # 8) Calibrate best model
+    print("\n" + "-" * 40)
+    print(f"Calibrating {best_name}...")
+    print("-" * 40)
+    calibrated_model = calibrate_model(best_model, data["X_val_t"], data["y_val"])
+    cal_val_prob = calibrated_model.predict_proba(data["X_val_t"])[:, 1]
+    plot_calibration_curve(
+        np.array(data["y_val"]), best_val_prob, cal_val_prob, best_name
+    )
+
+    # 9) Evaluate best model on TEST set
     print("\n" + "-" * 40)
     print(f"Evaluating {best_name} on TEST set...")
     print("-" * 40)
@@ -349,17 +541,19 @@ def run_full_pipeline():
         data["y_test"], best_test_prob,
         model_name=f"{best_name} (Test)",
     )
+    test_summary["CV_PR_AUC_mean"] = cv_mean
+    test_summary["CV_PR_AUC_std"]  = cv_std
 
-    # 8) Risk distribution plot
+    # 10) Risk distribution plot
     plot_risk_distribution(best_val_prob, model_name=f"{best_name} (Validation)")
 
-    # 9) Precision/Recall@K sweep
+    # 11) Precision/Recall@K sweep
     precision_recall_at_k_sweep(data["y_val"], best_val_prob)
 
-    # 10) Triage analysis
-    triage_analysis(data["y_val"], best_val_prob, model_name=best_name)
+    # 12) Triage analysis with ROI
+    triage_results, roi = triage_analysis(data["y_val"], best_val_prob, model_name=best_name)
 
-    # 11) Save best model
+    # 13) Save best model
     model_path = save_best_model(best_model, best_name)
 
     # Save test summary
@@ -372,11 +566,15 @@ def run_full_pipeline():
 
     return {
         **data,
-        "best_model": best_model,
-        "best_model_name": best_name,
-        "best_val_prob": best_val_prob,
-        "best_test_prob": best_test_prob,
-        "model_path": model_path,
+        "best_model":          best_model,
+        "calibrated_model":    calibrated_model,
+        "best_model_name":     best_name,
+        "best_val_prob":       best_val_prob,
+        "cal_val_prob":        cal_val_prob,
+        "best_test_prob":      best_test_prob,
+        "model_path":          model_path,
+        "triage_results":      triage_results,
+        "roi":                 roi,
     }
 
 

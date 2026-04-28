@@ -49,10 +49,25 @@ PCT_MANUAL = 0.15        # next 15% → Manual Review
 N_REASON_CODES = 5       # top SHAP drivers per claim
 
 # ──────────────────────────────────────────────
-# XGBoost hyperparameters (from notebook)
+# Business cost assumptions (for ROI analysis)
+# ──────────────────────────────────────────────
+AVG_FRAUD_LOSS = 15_000   # average loss per undetected fraud claim ($)
+SIU_COST       = 500      # cost per SIU investigation ($)
+MANUAL_COST    = 100      # cost per manual review ($)
+
+# ──────────────────────────────────────────────
+# Optuna tuning settings
+# ──────────────────────────────────────────────
+OPTUNA_N_TRIALS   = 20    # number of Bayesian optimisation trials
+OPTUNA_CV_FOLDS   = 3     # stratified k-fold folds used inside each trial
+OPTUNA_TIMEOUT    = 300   # seconds wall-clock limit per study (5 min each)
+
+# ──────────────────────────────────────────────
+# XGBoost base hyperparameters (from notebook)
+# n_estimators is intentionally high — early stopping controls actual count
 # ──────────────────────────────────────────────
 XGB_PARAMS = dict(
-    n_estimators=1000,
+    n_estimators=2000,
     learning_rate=0.05,
     max_depth=6,
     min_child_weight=1,

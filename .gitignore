@@ -1,4 +1,42 @@
+# Python
 __pycache__/
-*.pyc
-catboost_info/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment variables
 .env
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Model artifacts too large for git (none currently exceed limits)
+catboost_info/
+
+# Dataset (too large / proprietary — download separately)
+fraud_oracle.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Kiro
+.kiro/

@@ -1,0 +1,29 @@
+{
+  "best_model_name": "XGBoost (Optuna)",
+  "best_model_path": "C:\\Users\\mchowd42\\insurance-claims-risk-triage\\outputs\\improvement\\best_model_improved.joblib",
+  "val_pr_auc": 0.3223014163730695,
+  "val_roc_auc": 0.8595100811089592,
+  "val_precision_5pct": 0.3246753246753247,
+  "val_recall_5pct": 0.26881720430107525,
+  "test_pr_auc": 0.2442928016275277,
+  "test_roc_auc": 0.8331109445277363,
+  "cv_pr_auc_mean": 0.2620578086774976,
+  "feature_count": 90,
+  "train_size": 12336,
+  "val_size": 1542,
+  "test_size": 1542,
+  "fraud_rate": 0.05982490272373541,
+  "triage_roi": {
+    "fraud_caught": 62,
+    "savings_usd": 930000,
+    "costs_usd": 61600,
+    "net_benefit": 868400,
+    "roi_x": 15.097402597402597
+  },
+  "trained_at": "2026-04-27T22:06:57.002802",
+  "models_compared": [
+    "XGBoost (Optuna)",
+    "OOF Stack (XGB + CatBoost)",
+    "CatBoost (Optuna)"
+  ]
+}

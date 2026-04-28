@@ -1,6 +1,8 @@
 {
-  "Model": "XGBoost + Feature Eng (Test)",
-  "PR_AUC": 0.2585905761324956,
-  "Precision_at_5pct": 0.2857142857142857,
-  "Recall_at_5pct": 0.2391304347826087
+  "Model": "XGBoost (Optuna) (Test)",
+  "PR_AUC": 0.2442928016275277,
+  "ROC_AUC": 0.8331109445277363,
+  "Precision_at_5pct": 0.2727272727272727,
+  "Recall_at_5pct": 0.22826086956521738,
+  "Op_Threshold": 0.7584535479545593
 }

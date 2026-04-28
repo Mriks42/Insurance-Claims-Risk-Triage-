@@ -28,6 +28,13 @@ import json
 import warnings
 warnings.filterwarnings("ignore")
 
+# Load .env file so OPENAI_API_KEY is available without setting env vars manually
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from config import OUTPUTS_DIR
 
 # ============================================================
@@ -122,7 +129,12 @@ def load_and_chunk_all(docs_dir=DOCS_DIR):
 # 2) Build vector index with ChromaDB
 # ============================================================
 def build_vector_index(chunks, persist_dir=CHROMA_DIR):
-    """Build a ChromaDB collection from document chunks."""
+    """
+    Build a ChromaDB collection from document chunks.
+    Uses PersistentClient — if the collection already exists it is reused,
+    so the Streamlit app loads instantly without re-embedding on every restart.
+    Pass force_rebuild=True (or delete the chroma_db folder) to force a rebuild.
+    """
     try:
         import chromadb
         from chromadb.utils import embedding_functions
@@ -132,7 +144,6 @@ def build_vector_index(chunks, persist_dir=CHROMA_DIR):
         import chromadb
         from chromadb.utils import embedding_functions
 
-    # Use sentence-transformers for embeddings
     try:
         ef = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name=EMBEDDING_MODEL,
@@ -144,14 +155,20 @@ def build_vector_index(chunks, persist_dir=CHROMA_DIR):
             model_name=EMBEDDING_MODEL,
         )
 
-    # Create persistent client
-    client = chromadb.Client()
+    os.makedirs(persist_dir, exist_ok=True)
+    client = chromadb.PersistentClient(path=persist_dir)
 
-    # Delete existing collection if it exists
+    # Reuse existing collection if it already has the right number of chunks
     try:
-        client.delete_collection(name=COLLECTION_NAME)
+        collection = client.get_collection(name=COLLECTION_NAME, embedding_function=ef)
+        if collection.count() == len(chunks):
+            print(f"  Reusing existing index: {collection.count()} chunks (no rebuild needed)")
+            return client, collection
+        else:
+            print(f"  Index size mismatch ({collection.count()} vs {len(chunks)}), rebuilding...")
+            client.delete_collection(name=COLLECTION_NAME)
     except Exception:
-        pass
+        pass  # collection doesn't exist yet — create it below
 
     collection = client.create_collection(
         name=COLLECTION_NAME,
@@ -159,18 +176,14 @@ def build_vector_index(chunks, persist_dir=CHROMA_DIR):
         metadata={"description": "Insurance fraud investigation guidelines"},
     )
 
-    # Add chunks to collection
-    ids = [f"chunk_{i}" for i in range(len(chunks))]
+    ids       = [f"chunk_{i}" for i in range(len(chunks))]
     documents = [c["text"] for c in chunks]
     metadatas = [{"source": c["source"], "chunk_id": c["chunk_id"]} for c in chunks]
 
-    collection.add(
-        ids=ids,
-        documents=documents,
-        metadatas=metadatas,
-    )
+    collection.add(ids=ids, documents=documents, metadatas=metadatas)
 
     print(f"  Vector index built: {collection.count()} chunks indexed")
+    print(f"  Persisted to: {persist_dir}")
     return client, collection
 
 

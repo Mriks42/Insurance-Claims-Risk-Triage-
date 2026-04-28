@@ -176,12 +176,12 @@ def make_reason_code(feature_name, shap_value, cat_cols=None):
     """
     Convert a SHAP driver into a human-readable reason code.
 
-    For one-hot encoded features (OriginalColumn_Value), decodes the
-    original column name and category. For numeric features, reports
-    the feature name and direction.
+    Correctly handles OHE features whose original column names contain
+    underscores (e.g. AddressChange_Claim_2 to 3 years) by matching
+    the longest column-name prefix first.
     """
     direction = "High risk" if shap_value > 0 else "Low risk"
-    strength = abs(shap_value)
+    strength  = abs(shap_value)
 
     if strength > 0.5:
         intensity = "STRONG"
@@ -190,11 +190,14 @@ def make_reason_code(feature_name, shap_value, cat_cols=None):
     else:
         intensity = "MILD"
 
-    # Try to decode one-hot encoded features
+    # Match longest prefix first to handle columns with underscores
     if cat_cols:
-        parts = feature_name.split("_", 1)
-        if len(parts) == 2 and parts[0] in cat_cols:
-            return f"[{intensity}] {direction}: {parts[0]} = '{parts[1]}' (SHAP: {shap_value:+.4f})"
+        for col in sorted(cat_cols, key=len, reverse=True):
+            prefix = col + "_"
+            if feature_name.startswith(prefix):
+                category_value = feature_name[len(prefix):]
+                return (f"[{intensity}] {direction}: {col} = "
+                        f"'{category_value}' (SHAP: {shap_value:+.4f})")
 
     return f"[{intensity}] {direction}: {feature_name} (SHAP: {shap_value:+.4f})"
 
@@ -235,6 +238,7 @@ def run_shap_analysis(data=None):
     """
     Run the full SHAP analysis pipeline.
     If data is None, runs the modeling pipeline first to get data + model.
+    Uses calibrated risk scores for triage ranking when available.
     """
     print("=" * 60)
     print("SHAP Explainability Analysis")
@@ -244,16 +248,21 @@ def run_shap_analysis(data=None):
         from modeling import run_full_pipeline
         data = run_full_pipeline()
 
-    model = data["best_model"]
-    X_val_t = data["X_val_t"]
-    y_val = np.array(data["y_val"])
+    model        = data["best_model"]
+    X_val_t      = data["X_val_t"]
+    y_val        = np.array(data["y_val"])
     feature_names = data["feature_names"]
-    cat_cols = data["cat_cols"]
+    cat_cols     = data["cat_cols"]
 
-    # Risk scores
-    y_prob = model.predict_proba(X_val_t)[:, 1]
+    # Use calibrated probabilities for triage ranking if available,
+    # raw probabilities for SHAP (TreeExplainer needs the raw model)
+    if "cal_val_prob" in data:
+        y_prob = data["cal_val_prob"]
+        print("  Using calibrated risk scores for triage ranking.")
+    else:
+        y_prob = model.predict_proba(X_val_t)[:, 1]
 
-    # Compute SHAP
+    # Compute SHAP on raw model (TreeExplainer requires the base estimator)
     print("\nComputing SHAP values...")
     explainer, shap_values = compute_shap_values(model, X_val_t)
 
@@ -279,9 +288,9 @@ def run_shap_analysis(data=None):
     print(f"\nAll outputs saved to: {SHAP_DIR}")
 
     return {
-        "explainer": explainer,
-        "shap_values": shap_values,
-        "importance": importance,
+        "explainer":    explainer,
+        "shap_values":  shap_values,
+        "importance":   importance,
         "explanations": explanations,
         "reason_codes": reason_codes,
     }
