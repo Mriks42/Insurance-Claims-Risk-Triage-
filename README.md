@@ -12,6 +12,18 @@ An end-to-end fraud triage system for automotive insurance claims that:
 
 ---
 
+## Screenshots
+
+| Summary Dashboard | Review Queue |
+|:-:|:-:|
+| ![Summary Dashboard](images/1.png) | ![Review Queue](images/2.png) |
+
+| Claim Detail + RAG Brief | Live Claim Scoring |
+|:-:|:-:|
+| ![Claim Detail](images/3.png) | ![Live Scoring](images/4.png) |
+
+---
+
 ## Table of Contents
 
 - [Project Structure](#project-structure)
