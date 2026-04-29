@@ -1617,7 +1617,7 @@ def page_dataset_comparison():
     }
 
     df_profile = pd.DataFrame(profile_data).set_index("Attribute")
-    st.table(df_profile)
+    st.dataframe(df_profile, use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1787,7 +1787,7 @@ labels["Fraud"] = (
         with col_t:
             st.markdown("**Triage Bucket Performance (Medicare Test Set)**")
             triage_df = pd.DataFrame(med_results["triage"])
-            st.table(triage_df)
+            st.dataframe(triage_df, use_container_width=True, hide_index=True)
             st.caption(f"5-fold CV PR-AUC: {m['cv_mean']:.4f} ± {m['cv_std']:.4f}")
 
         with col_p:
