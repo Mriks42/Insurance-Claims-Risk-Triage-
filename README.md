@@ -94,6 +94,8 @@ FSE 570 Capstone Project/
 ├── fairness_analysis.py          # Disparate impact analysis (age, sex, marital status)
 ├── monitoring.py                 # Batch drift detection (Evidently + KS test fallback)
 ├── temporal_analysis.py          # Month-by-month performance analysis
+├── medicare_comparison.py        # Medicare vs. auto insurance EDA + comparison plots
+├── medicare_modeling.py          # XGBoost + Optuna pipeline on Medicare provider fraud data
 │
 ├── requirements.txt              # Python dependencies
 ├── .env.example                  # Template for OpenAI API key
@@ -345,6 +347,8 @@ Each page has a collapsible **ℹ️** button at the top with a plain-English ex
 | `fairness_analysis.py` | Disparate impact analysis across demographic groups |
 | `monitoring.py` | Batch drift detection (Evidently + KS test fallback) |
 | `temporal_analysis.py` | Month-by-month performance tracking |
+| `medicare_comparison.py` | Medicare vs. auto EDA and comparison plots |
+| `medicare_modeling.py` | XGBoost + Optuna pipeline on Medicare provider fraud |
 | `app.py` | 8-page Streamlit dashboard |
 
 ---
@@ -606,6 +610,7 @@ OPENAI_API_KEY=sk-your-key-here
 | `outputs/fairness/` | Disparate impact charts and CSVs per demographic group |
 | `outputs/monitoring/` | Batch statistics, drift summary, trend charts |
 | `outputs/temporal/` | Monthly metrics CSV and performance charts |
+| `outputs/medicare/` | Medicare EDA plots, model results JSON, SHAP comparison, PR curve |
 
 ---
 
