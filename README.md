@@ -53,6 +53,10 @@ An end-to-end fraud triage system for automotive insurance claims that:
 |:-:|:-:|
 | ![MLflow — model_improvement run](images/8.png) |  |
 
+| Live on Hugging Face Spaces |  |
+|:-:|:-:|
+| ![Hugging Face Spaces deployment](images/9.png) |  |
+
 ---
 
 ## Table of Contents
@@ -159,12 +163,20 @@ pip install -r requirements.txt
 
 Download `fraud_oracle.csv` from [Kaggle — Vehicle Insurance Fraud Detection](https://www.kaggle.com/datasets/shivamb/vehicle-claim-fraud-detection) and place it in the project root.
 
-### 4. (Optional) Enable LLM-powered briefs
+### 4. Enable LLM-powered briefs (GPT-4o-mini)
+
+Copy `.env.example` to `.env` and add your OpenAI API key:
 
 ```bash
-# Copy .env.example to .env and add your OpenAI API key
+# .env
 OPENAI_API_KEY=sk-your-key-here
 ```
+
+Get a key at [platform.openai.com](https://platform.openai.com/api-keys). GPT-4o-mini costs ~$0.0003 per brief — $5 of credits lasts essentially forever for portfolio use.
+
+**For the live Hugging Face app:** Add `OPENAI_API_KEY` as a secret in your Space settings (Settings → Variables and secrets → New secret).
+
+Without a key the RAG pipeline automatically falls back to the structured template mode — fully functional, no API needed.
 
 ### 5. Run the full pipeline (one command)
 
@@ -520,7 +532,7 @@ python temporal_analysis.py    # standalone run
 
 ## RAG Pipeline
 
-4 guideline documents, 56 chunks, persistent ChromaDB index.
+4 guideline documents, 56 chunks, persistent ChromaDB index. Powers the AI-generated triage briefs on the Claim Detail and Live Scoring pages.
 
 | Document | Description |
 |----------|-------------|
@@ -529,8 +541,28 @@ python temporal_analysis.py    # standalone run
 | `policy_coverage_standards.md` | Coverage types, deductible patterns, agent oversight |
 | `staged_accident_patterns.md` | Staged accident schemes, investigation procedures |
 
-- **LLM mode**: GPT-4o-mini generates natural language briefs with cited passages
-- **Template mode**: Structured briefs with no API key required
+### Brief generation modes
+
+| Mode | How it works | When it's used |
+|------|-------------|----------------|
+| **🤖 GPT-4o-mini** | Retrieves relevant guideline passages via ChromaDB, sends them + claim data + SHAP reason codes to GPT-4o-mini, returns a natural language brief with citations | When `OPENAI_API_KEY` is set in `.env` or HF Spaces secrets |
+| **📋 Template** | Structured brief built from claim data and retrieved passages — no LLM needed | When no API key is present |
+
+Both modes retrieve guideline passages from ChromaDB and cite them in the brief. The template mode is fully professional and suitable for production use.
+
+### Setup
+```bash
+# Local — add to .env file
+OPENAI_API_KEY=sk-your-key-here
+
+# Hugging Face — add as Space secret
+# Settings → Variables and secrets → New secret → OPENAI_API_KEY
+```
+
+### RAG index behavior
+- **First run:** builds and persists the ChromaDB index to `outputs/rag/chroma_db/`
+- **Subsequent runs:** reuses the persisted index instantly — no re-embedding
+- **Rebuild trigger:** only when guideline documents change
 
 ---
 
@@ -549,6 +581,7 @@ python temporal_analysis.py    # standalone run
 | Fairness | Not measured | Disparate impact analysis (80% rule) |
 | Monitoring | Not measured | Batch drift detection |
 | Temporal analysis | Not measured | Month-by-month performance tracking |
+| RAG corpus | 3 docs, 36 chunks, rebuilt every run | 4 docs, 56 chunks, persistent index, GPT-4o-mini integrated |
 | Deployment | Local only | Docker + Hugging Face Spaces (auto-deploy) |
 | Pipeline | 4 manual scripts | Single `python train.py` command |
 | Dashboard | None | 7-page Streamlit app |
