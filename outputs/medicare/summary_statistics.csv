@@ -1,0 +1,11 @@
+Metric,Automotive Insurance (fraud_oracle),Medicare Provider Fraud
+Total records (primary unit),"15,420","5,410 providers"
+Total raw claim records,"15,420","558,211"
+Number of features (raw),33,25–30 per file
+Fraud rate (%),5.99%,9.35%
+Fraud cases,923,506
+Legitimate cases,"14,497","4,904"
+Imbalance ratio (legit:fraud),15.7:1,9.7:1
+Recommended metric,PR-AUC,PR-AUC
+Domain,Automotive insurance,Healthcare / Medicare
+Fraud unit,Individual claim,Healthcare provider

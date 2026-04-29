@@ -28,6 +28,9 @@ catboost_info/
 # Dataset (too large / proprietary — download separately)
 fraud_oracle.csv
 
+# Medicare dataset (too large — download separately from Kaggle)
+medicare_data/
+
 # OS
 .DS_Store
 Thumbs.db

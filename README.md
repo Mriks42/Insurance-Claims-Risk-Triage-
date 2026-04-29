@@ -15,7 +15,7 @@ An end-to-end fraud triage system for automotive insurance claims that:
 5. **Analyses fairness** across demographic groups (age, sex, marital status) using the 80% disparate impact rule
 6. **Monitors** model behavior over time with batch drift detection
 7. **Tracks** month-by-month performance to detect model decay
-8. **Visualises** everything in an interactive Streamlit dashboard with 7 pages
+8. **Visualises** everything in an interactive Streamlit dashboard with 8 pages
 
 ---
 
@@ -58,6 +58,7 @@ An end-to-end fraud triage system for automotive insurance claims that:
 - [Tests](#tests)
 - [Critical Finding: Data Leakage](#critical-finding-data-leakage)
 - [Model Performance](#model-performance)
+- [Dataset Comparison](#dataset-comparison)
 - [Fairness Analysis](#fairness-analysis)
 - [Model Monitoring](#model-monitoring)
 - [Temporal Analysis](#temporal-analysis)
@@ -147,9 +148,16 @@ cd insurance-claims-risk-triage
 pip install -r requirements.txt
 ```
 
-### 3. Download the dataset
+### 3. Download the datasets
 
-Download `fraud_oracle.csv` from [Kaggle — Vehicle Insurance Fraud Detection](https://www.kaggle.com/datasets/shivamb/vehicle-claim-fraud-detection) and place it in the project root.
+**Primary dataset:** Download `fraud_oracle.csv` from [Kaggle — Vehicle Insurance Fraud Detection](https://www.kaggle.com/datasets/shivamb/vehicle-claim-fraud-detection) and place it in the project root.
+
+**Secondary dataset (optional — for Dataset Comparison page):** Download the [Healthcare Provider Fraud Detection](https://www.kaggle.com/datasets/rohitrox/healthcare-provider-fraud-detection-analysis) dataset and extract all CSV files into a `medicare_data/` folder in the project root. Then run:
+
+```bash
+python medicare_comparison.py   # EDA and comparison plots
+python medicare_modeling.py     # XGBoost + Optuna model on Medicare data
+```
 
 ### 4. Enable LLM-powered briefs (GPT-4o-mini)
 
@@ -299,7 +307,7 @@ This means every code change is automatically tested and deployed. If a test fai
 
 ## Streamlit Dashboard
 
-7 pages:
+8 pages:
 
 Each page has a collapsible **ℹ️** button at the top with a plain-English explanation of every metric and chart — useful for non-technical reviewers and investigators.
 
@@ -312,6 +320,7 @@ Each page has a collapsible **ℹ️** button at the top with a plain-English ex
 | **⚖️ Fairness Analysis** | Disparate impact analysis across age groups, sex, and marital status using the 80% rule. Groups with fewer than 30 claims excluded from DI calculation |
 | **📡 Monitoring** | Test set split into 6 time-ordered batches — tracks fraud rate, avg risk score, and feature drift (KS test) per batch |
 | **📅 Temporal Analysis** | Month-by-month PR-AUC, fraud rate, Precision@5%, and avg risk score — highlights best and worst performing months |
+| **🗂️ Dataset Comparison** | Side-by-side comparison of automotive insurance (fraud_oracle) and Medicare provider fraud datasets — profiles, visualizations, and methodology applicability |
 
 ---
 
@@ -561,6 +570,7 @@ OPENAI_API_KEY=sk-your-key-here
 | Area | Before | After |
 |------|--------|-------|
 | Data leakage | PolicyNumber in model (PR-AUC 0.79 fake) | Fixed — honest PR-AUC 0.25 → 0.32 |
+| Datasets | Single dataset | Two heterogeneous datasets (auto + Medicare, 573K+ records) |
 | Features | 31 raw features | 41 engineered + 7 guideline-grounded flags |
 | Hyperparameter tuning | RandomizedSearchCV | Optuna Bayesian TPE |
 | Ensemble | None | OOF stacking (XGB + CatBoost → LR meta-learner) |
@@ -597,10 +607,54 @@ OPENAI_API_KEY=sk-your-key-here
 
 ## Dataset
 
+### Primary Dataset — Automotive Insurance Claims
 **Source:** `fraud_oracle.csv` — 15,420 automotive insurance claims, 33 columns
 **Target:** `FraudFound_P` (binary: 0 = legitimate, 1 = fraud)
 **Fraud rate:** 5.99% (923 of 15,420 claims)
 **Split:** 80/10/10 stratified (train: 12,336 / val: 1,542 / test: 1,542)
+
+### Secondary Dataset — Medicare Provider Fraud
+**Source:** [Healthcare Provider Fraud Detection Analysis](https://www.kaggle.com/datasets/rohitrox/healthcare-provider-fraud-detection-analysis) — 4 CSV files, 558,211 raw claims
+**Target:** `PotentialFraud` (Yes/No) at the provider level
+**Fraud rate:** 9.35% (506 of 5,410 providers)
+**Processing:** 4 files joined on Provider ID, claim-level data aggregated to provider-level feature matrix (5,410 × 22), missing values filled with zero
+
+The two datasets are intentionally heterogeneous — different domains, different schemas, different fraud mechanisms — satisfying the requirement for multi-source data analysis.
+
+---
+
+## Dataset Comparison
+
+A dedicated **🗂️ Dataset Comparison** page in the dashboard provides a full cross-domain analysis. Key findings:
+
+| Metric | Automotive Insurance | Medicare Provider Fraud |
+|--------|:--------------------:|:-----------------------:|
+| Records (primary unit) | 15,420 claims | 5,410 providers |
+| Raw claim records | 15,420 | 558,211 |
+| Fraud rate | 5.99% | 9.35% |
+| Imbalance ratio | 15.7:1 | 9.7:1 |
+| Best metric | PR-AUC | PR-AUC |
+| Model Val PR-AUC | 0.3223 | **0.7874** |
+| Model Test PR-AUC | 0.2443 | **0.6869** |
+| SIU Enrichment | 5.4× | **8.9×** |
+
+### Why Medicare PR-AUC is higher
+
+The Medicare model achieves significantly higher PR-AUC (0.69 vs 0.24) for three reasons:
+
+1. **Stronger fraud signal** — Medicare fraud is committed by providers systematically overbilling across hundreds of claims. `TotalReimbursed` (SHAP = 1.13) alone separates fraudulent from legitimate providers cleanly. Auto insurance fraud is a single person, single claim, designed to look like a legitimate accident — much subtler.
+
+2. **Aggregation amplifies patterns** — The Medicare feature matrix is at the provider level. Each row is the sum/average of hundreds of claims, which removes individual noise and amplifies systematic billing patterns. A fraudulent provider billing $3.2M vs a legitimate one billing $400K is an obvious signal. Auto insurance has no such aggregation — each claim stands alone.
+
+3. **Different fraud mechanisms** — Medicare fraud is a business operation (repeated, systematic, measurable). Auto insurance fraud is a one-time event (opportunistic, subtle, hard to distinguish from legitimate claims).
+
+### Key cross-domain finding
+
+The top SHAP features are completely different across domains:
+- **Auto insurance:** `Fault` (0.823), `Liability_NoPolice` (0.546) — claim characteristics
+- **Medicare:** `TotalReimbursed` (1.131), `TotalInpatientAmt` (0.288) — billing volume
+
+This confirms that **domain-specific feature engineering is essential** — the methodology (XGBoost + Optuna + SHAP + triage buckets) transfers across domains, but the features do not.
 
 ---
 

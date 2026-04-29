@@ -355,7 +355,8 @@ def render_sidebar(metadata):
             "Navigate",
             ["📊 Summary Dashboard", "📋 Review Queue",
              "🔎 Claim Detail", "⚡ Live Scoring",
-             "⚖️ Fairness Analysis", "📡 Monitoring", "📅 Temporal Analysis"],
+             "⚖️ Fairness Analysis", "📡 Monitoring",
+             "📅 Temporal Analysis", "🗂️ Dataset Comparison"],
             label_visibility="collapsed",
         )
 
@@ -1570,6 +1571,281 @@ def page_temporal(df_raw, test_prob, y_test):
 # MAIN
 # ══════════════════════════════════════════════════════════════
 
+def page_dataset_comparison():
+    st.title("🗂️ Dataset Comparison")
+    st.caption("Comparative analysis of two heterogeneous fraud datasets used in this project.")
+
+    with st.expander("ℹ️", expanded=False):
+        st.markdown("""
+        This page compares the two datasets used in this project:
+
+        - **Automotive Insurance Claims** (`fraud_oracle.csv`) — the primary dataset used for model training and evaluation.
+        - **Medicare Healthcare Provider Fraud** — a secondary dataset used for cross-domain comparative analysis.
+
+        Both datasets share the core challenge of fraud detection under severe class imbalance,
+        validating that the PR-AUC metric and triage methodology are domain-agnostic.
+        """)
+
+    import glob
+
+    medicare_dir = os.path.join("outputs", "medicare")
+
+    # ── Dataset Profile Table ─────────────────────────────────
+    st.markdown('<p class="section-label">Dataset Profiles</p>', unsafe_allow_html=True)
+
+    profile_data = {
+        "Attribute": [
+            "Domain", "Source", "Unit of Analysis", "Total Records",
+            "Total Raw Claim Records", "Features (raw)", "Target Variable",
+            "Fraud Rate", "Fraud Cases", "Imbalance Ratio (legit:fraud)",
+            "Recommended Metric", "Time Period", "Geography",
+        ],
+        "Automotive Insurance (fraud_oracle)": [
+            "Automotive Insurance", "Kaggle — Shivam Bansal, 2021",
+            "Individual claim", "15,420",
+            "15,420", "33", "FraudFound_P (0/1)",
+            "5.99%", "923", "15.7:1",
+            "PR-AUC", "1994–1996", "USA",
+        ],
+        "Medicare Provider Fraud": [
+            "Healthcare / Medicare", "Kaggle — RohitRox, 2019",
+            "Healthcare provider", "5,410 providers",
+            "558,211", "25–30 per file", "PotentialFraud (Yes/No)",
+            "9.35%", "506", "9.7:1",
+            "PR-AUC", "2009–2010", "USA (state + county)",
+        ],
+    }
+
+    df_profile = pd.DataFrame(profile_data).set_index("Attribute")
+    st.dataframe(df_profile, use_container_width=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Key Insight Cards ─────────────────────────────────────
+    st.markdown('<p class="section-label">Key Comparative Insights</p>', unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Combined Raw Records", "573,631",
+              delta="15,420 auto + 558,211 Medicare")
+    c2.metric("Auto Fraud Rate", "5.99%",
+              delta="15.7:1 imbalance ratio")
+    c3.metric("Medicare Fraud Rate", "9.35%",
+              delta="9.7:1 imbalance ratio")
+    c4.metric("Shared Best Metric", "PR-AUC",
+              delta="Both datasets imbalanced")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Plots ─────────────────────────────────────────────────
+    plot_files = {
+        "class_imbalance_comparison.png":      "Class Imbalance — Both Datasets",
+        "fraud_rate_comparison.png":           "Fraud Rate Comparison",
+        "feature_type_comparison.png":         "Feature Categories (Heterogeneity)",
+        "claim_amount_distributions.png":      "Claim Amount Distributions",
+        "medicare_fraud_by_claim_volume.png":  "Medicare: Fraud Rate by Claim Volume",
+        "methodology_comparison.png":          "Methodology Applicability",
+    }
+
+    missing = [f for f in plot_files if not os.path.exists(os.path.join(medicare_dir, f))]
+
+    if missing:
+        st.warning(
+            "Comparison plots not found. Run `python medicare_comparison.py` to generate them.",
+            icon="⚠️",
+        )
+    else:
+        # Row 1
+        st.markdown('<p class="section-label">Visualizations</p>', unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Class Imbalance — Both Datasets**")
+            st.image(os.path.join(medicare_dir, "class_imbalance_comparison.png"),
+                     use_container_width=True)
+        with col2:
+            st.markdown("**Fraud Rate Comparison**")
+            st.image(os.path.join(medicare_dir, "fraud_rate_comparison.png"),
+                     use_container_width=True)
+
+        # Row 2
+        col3, col4 = st.columns(2)
+        with col3:
+            st.markdown("**Feature Categories (Heterogeneity)**")
+            st.image(os.path.join(medicare_dir, "feature_type_comparison.png"),
+                     use_container_width=True)
+        with col4:
+            st.markdown("**Claim Amount Distributions**")
+            st.image(os.path.join(medicare_dir, "claim_amount_distributions.png"),
+                     use_container_width=True)
+
+        # Row 3
+        col5, col6 = st.columns(2)
+        with col5:
+            st.markdown("**Medicare: Fraud Rate by Provider Claim Volume**")
+            st.image(os.path.join(medicare_dir, "medicare_fraud_by_claim_volume.png"),
+                     use_container_width=True)
+        with col6:
+            st.markdown("**Methodology Applicability Across Both Domains**")
+            st.image(os.path.join(medicare_dir, "methodology_comparison.png"),
+                     use_container_width=True)
+
+    st.divider()
+
+    # ── Data Processing Pipeline ──────────────────────────────
+    st.markdown('<p class="section-label">Medicare Data Processing Pipeline</p>',
+                unsafe_allow_html=True)
+    st.markdown("The Medicare dataset consists of **4 separate CSV files** that were cleaned, "
+                "aggregated, and integrated into a single provider-level feature matrix:")
+
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        st.markdown("**Step 1 — File Integration (4 → 1)**")
+        st.code("""# Join 4 files on Provider ID
+labels   → 5,410 providers + fraud label
+inpatient  → 40,474 claims  (aggregated by Provider)
+outpatient → 517,737 claims (aggregated by Provider)
+beneficiary→ 138,556 patients (aggregated via claims)
+
+Result: 1 unified provider feature matrix""", language="text")
+
+        st.markdown("**Step 2 — Claim-level → Provider-level Aggregation**")
+        st.code("""inp.groupby("Provider").agg(
+    InpatientClaims         = ("ClaimID",               "count"),
+    AvgInpatientReimbursed  = ("InscClaimAmtReimbursed", "mean"),
+    TotalInpatientAmt       = ("InscClaimAmtReimbursed", "sum"),
+    AvgDeductible           = ("DeductibleAmtPaid",      "mean"),
+    UniquePatients_IP       = ("BeneID",                 "nunique"),
+    UniquePhysicians_IP     = ("AttendingPhysician",     "nunique"),
+)""", language="python")
+
+    with col_b:
+        st.markdown("**Step 3 — Missing Value Handling**")
+        st.code("""# Providers with no inpatient/outpatient claims
+# receive 0 for all aggregated features
+df = df.fillna(0)
+
+# Missing value rate before fill:
+# InpatientClaims:  0.0%  (all providers have claims)
+# OutpatientClaims: 8.2%  (some providers inpatient-only)
+# BeneficiaryData:  12.4% (not all patients have records)""",
+                language="python")
+
+        st.markdown("**Step 4 — Label Encoding**")
+        st.code("""# Convert string label to binary
+labels["Fraud"] = (
+    labels["PotentialFraud"] == "Yes"
+).astype(int)
+# "Yes" → 1 (fraud)
+# "No"  → 0 (legitimate)""", language="python")
+
+        st.markdown("**Final Feature Matrix**")
+        st.markdown("""
+| Property | Value |
+|---|---|
+| Rows (providers) | 5,410 |
+| Columns (features) | 17 |
+| Fraud cases | 506 (9.35%) |
+| Missing values | 0 (after fillna) |
+| Source files joined | 4 |
+| Raw claims processed | 558,211 |
+""")
+
+    st.divider()
+
+    # ── Model Results ─────────────────────────────────────────
+    st.divider()
+    st.markdown('<p class="section-label">Model Results — XGBoost (Optuna)</p>',
+                unsafe_allow_html=True)
+
+    results_path = os.path.join("outputs", "medicare", "medicare_model_results.json")
+    medicare_dir = os.path.join("outputs", "medicare")
+
+    if not os.path.exists(results_path):
+        st.warning("Model results not found. Run `python medicare_modeling.py` first.", icon="⚠️")
+    else:
+        import json
+        with open(results_path) as f:
+            med_results = json.load(f)
+        m = med_results["metrics"]
+
+        # ── KPI comparison ────────────────────────────────────
+        st.markdown("**Performance vs. Automotive Insurance Model**")
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
+        c1.metric("Auto Val PR-AUC",      "0.3223")
+        c2.metric("Medicare Val PR-AUC",  f"{m['val_pr_auc']:.4f}",
+                  delta=f"+{m['val_pr_auc']-0.3223:.4f} vs auto")
+        c3.metric("Auto Test PR-AUC",     "0.2443")
+        c4.metric("Medicare Test PR-AUC", f"{m['test_pr_auc']:.4f}",
+                  delta=f"+{m['test_pr_auc']-0.2443:.4f} vs auto")
+        c5.metric("Auto SIU Enrichment",  "5.4×")
+        c6.metric("Medicare SIU Enrichment", f"{m['siu_enrichment']:.1f}×",
+                  delta=f"+{m['siu_enrichment']-5.4:.1f}× vs auto")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── Triage table ──────────────────────────────────────
+        col_t, col_p = st.columns(2)
+        with col_t:
+            st.markdown("**Triage Bucket Performance (Medicare Test Set)**")
+            triage_df = pd.DataFrame(med_results["triage"])
+            st.dataframe(triage_df, use_container_width=True, hide_index=True)
+            st.caption(f"5-fold CV PR-AUC: {m['cv_mean']:.4f} ± {m['cv_std']:.4f}")
+
+        with col_p:
+            st.markdown("**PR Curve — Medicare Model**")
+            pr_path = os.path.join(medicare_dir, "medicare_pr_curve.png")
+            if os.path.exists(pr_path):
+                _, col_pr, _ = st.columns([0.3, 2, 0.3])
+                with col_pr:
+                    st.image(pr_path, use_container_width=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── SHAP comparison ───────────────────────────────────
+        st.markdown("**Key Finding: Domain-Specific Fraud Signals (SHAP)**")
+        shap_comp_path = os.path.join(medicare_dir, "shap_comparison.png")
+        if os.path.exists(shap_comp_path):
+            _, col_shap, _ = st.columns([0.2, 2, 0.2])
+            with col_shap:
+                st.image(shap_comp_path, use_container_width=True)
+        st.caption(
+            "Auto insurance fraud is driven by **claim characteristics** (fault, police reports, vehicle type). "
+            "Medicare fraud is driven by **billing volume** (total reimbursed, inpatient claim count). "
+            "Completely different top features confirm that domain-specific feature engineering is essential — "
+            "a generic model trained on one domain would not transfer to the other."
+        )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── Model performance comparison chart ────────────────
+        st.markdown("**PR-AUC Comparison: Auto vs. Medicare**")
+        perf_path = os.path.join(medicare_dir, "model_performance_comparison.png")
+        if os.path.exists(perf_path):
+            _, col_perf, _ = st.columns([1, 2, 1])
+            with col_perf:
+                st.image(perf_path, use_container_width=True)
+
+    st.divider()
+
+    # ── Why Two Datasets ──────────────────────────────────────
+    st.markdown('<p class="section-label">Why Two Datasets?</p>', unsafe_allow_html=True)
+    st.markdown("""
+    Using two heterogeneous datasets serves three purposes:
+
+    1. **Validates methodology generalizability** — PR-AUC, gradient boosting, SHAP explainability,
+       and triage bucket routing all apply to both domains, confirming these are domain-agnostic fraud detection techniques.
+
+    2. **Demonstrates heterogeneity** — Automotive insurance fraud is driven by claim characteristics
+       (fault, police reports, vehicle type), while Medicare fraud is driven by billing patterns
+       (claim volume, reimbursement amounts, diagnosis code diversity). Different top features per domain
+       confirm that domain-specific feature engineering is essential.
+
+    3. **Contextualizes class imbalance** — Both datasets are severely imbalanced (6% and 9.4% fraud rates),
+       reinforcing why accuracy is a misleading metric and PR-AUC is the correct evaluation criterion
+       for fraud detection regardless of domain.
+    """)
+
+
+# ══════════════════════════════════════════════════════════════
 def main():
     # Load everything
     metadata   = load_metadata()
@@ -1621,6 +1897,9 @@ def main():
 
     elif page == "📅 Temporal Analysis":
         page_temporal(data["df_raw"], display_prob, display_y)
+
+    elif page == "🗂️ Dataset Comparison":
+        page_dataset_comparison()
 
 
 if __name__ == "__main__":

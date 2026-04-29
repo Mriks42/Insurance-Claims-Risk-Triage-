@@ -1,0 +1,11 @@
+,Automotive Insurance Claims,Medicare Healthcare Claims
+Source,"Kaggle (Shivam Bansal, 2021)","Kaggle (RohitRox, 2019)"
+Unit of Analysis,Individual claim,Healthcare provider
+Total Records,"15,420","5,410 providers"
+Raw Claim Records,"15,420","558,211"
+Features (raw),33,25–30 per file
+Target Variable,FraudFound_P (0/1),PotentialFraud (Yes/No)
+Fraud Rate,5.99%,9.35%
+Fraud Cases,923,506
+Time Period,1994–1996,2009–2010
+Geography,USA (unspecified),USA (state + county)

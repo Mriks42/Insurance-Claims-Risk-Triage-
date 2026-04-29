@@ -21,7 +21,7 @@ An end-to-end fraud detection system for automotive insurance claims.
 - Fairness analysis across age, sex, marital status (80% disparate impact rule)
 - Model monitoring and drift detection
 - Temporal month-by-month performance analysis
-- 7-page Streamlit dashboard with ℹ️ explanations on every page
+- 8-page Streamlit dashboard with ℹ️ explanations on every page
 
 ## Pages
 | Page | Description |
@@ -33,6 +33,7 @@ An end-to-end fraud detection system for automotive insurance claims.
 | ⚖️ Fairness Analysis | Disparate impact across age, sex, marital status |
 | 📡 Monitoring | Batch drift detection across time-ordered claim batches |
 | 📅 Temporal Analysis | Month-by-month PR-AUC and fraud rate |
+| 🗂️ Dataset Comparison | Automotive vs. Medicare fraud — profiles, charts, methodology applicability |
 
 ## Dataset
 Uses the [Vehicle Insurance Fraud Detection](https://www.kaggle.com/datasets/shivamb/vehicle-claim-fraud-detection) dataset from Kaggle (not included — download separately).

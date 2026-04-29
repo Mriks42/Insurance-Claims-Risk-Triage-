@@ -1,0 +1,51 @@
+{
+  "model": "XGBoost (Optuna)",
+  "dataset": "Medicare Provider Fraud",
+  "metrics": {
+    "val_pr_auc": 0.7874211113649718,
+    "val_roc_auc": 0.9646079484425348,
+    "test_pr_auc": 0.6869120789635896,
+    "test_roc_auc": 0.9389748998855835,
+    "prec_5pct": 0.926829268292683,
+    "rec_5pct": 0.5,
+    "cv_mean": 0.6794251461083975,
+    "cv_std": 0.03694139651475406,
+    "siu_fraud_rate": 0.8292682926829268,
+    "siu_enrichment": 8.86007702182285
+  },
+  "triage": [
+    {
+      "Bucket": "SIU (top 5%)",
+      "Count": 41,
+      "Fraud Rate": "82.9%",
+      "Enrichment": "8.9\u00d7"
+    },
+    {
+      "Bucket": "Manual Review (15%)",
+      "Count": 122,
+      "Fraud Rate": "24.6%",
+      "Enrichment": "2.6\u00d7"
+    },
+    {
+      "Bucket": "Approve (80%)",
+      "Count": 649,
+      "Fraud Rate": "1.8%",
+      "Enrichment": "0.2\u00d7"
+    }
+  ],
+  "best_params": {
+    "n_estimators": 185,
+    "max_depth": 5,
+    "learning_rate": 0.011240768803005551,
+    "subsample": 0.9637281608315128,
+    "colsample_bytree": 0.7035119926400067,
+    "min_child_weight": 7,
+    "reg_alpha": 3.116654126398047e-06,
+    "reg_lambda": 0.00014472520367197597,
+    "objective": "binary:logistic",
+    "eval_metric": "aucpr",
+    "random_state": 42,
+    "n_jobs": -1,
+    "tree_method": "hist"
+  }
+}
