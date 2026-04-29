@@ -37,17 +37,17 @@ An end-to-end fraud triage system for automotive insurance claims that:
 |:-:|:-:|
 | ![Temporal Analysis](images/7.png) |  |
 
-| MLflow Experiment Tracking |  |
+| Dataset Comparison |  |
 |:-:|:-:|
-| ![MLflow — model_improvement run](images/10.png) |  |
+| ![Dataset Comparison — Automotive vs. Medicare](images/8.png) |  |
 
 | Live on Hugging Face Spaces |  |
 |:-:|:-:|
 | ![Hugging Face Spaces deployment](images/9.png) |  |
 
-| Dataset Comparison |  |
+| MLflow Experiment Tracking |  |
 |:-:|:-:|
-| ![Dataset Comparison — Automotive vs. Medicare](images/8.png) |  |
+| ![MLflow — model_improvement run](images/10.png) |  |
 
 ---
 
