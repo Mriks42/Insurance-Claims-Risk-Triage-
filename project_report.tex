@@ -25,14 +25,10 @@
 \pagestyle{fancy}
 \fancyhf{}
 \rhead{\small FSE 570 Capstone --- Team Connecticut}
-\lhead{\small Automotive Insurance Claims Risk Triage}
+\lhead{\small Insurance Claims Fraud Triage}
 \cfoot{\thepage}
 
-\hypersetup{
-    colorlinks=true,
-    linkcolor=blue,
-    urlcolor=blue,
-}
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
 
 \setlength{\columnsep}{0.25in}
 \setlength{\parskip}{3pt}
@@ -41,12 +37,11 @@
 % ─────────────────────────────────────────────
 \begin{document}
 
-% Title block
 \twocolumn[
 \begin{@twocolumnfalse}
 \begin{center}
-    {\LARGE \textbf{Automotive Insurance Claims Risk Triage}} \\[6pt]
-    {\large An End-to-End Fraud Detection System with Explainability, RAG, and Fairness Analysis} \\[8pt]
+    {\LARGE \textbf{Insurance Claims Fraud Triage}} \\[6pt]
+    {\large An End-to-End Fraud Detection System with Explainability, RAG, and Cross-Domain Analysis} \\[8pt]
     {\normalsize
         Mriganko Chowdhury \quad Aryan Gonsalves \quad Ashish Raj Singh \quad
         Deborah Sheryl Veluvalli \quad Kshama Girish \\[2pt]
@@ -60,7 +55,7 @@
 
 \begin{abstract}
 \noindent
-We present an end-to-end automotive insurance fraud triage system combining gradient boosting ensemble models, SHAP explainability, Retrieval-Augmented Generation (RAG), and production engineering practices. Trained on the Vehicle Insurance Fraud Detection dataset (15,420 claims, 5.99\% fraud rate), the best model --- XGBoost with Optuna Bayesian tuning --- achieves a Validation PR-AUC of 0.3223 (+28\% over baseline) and a Test PR-AUC of 0.2443 on completely held-out data. The system concentrates fraud at 32.5\% in the top 5\% of flagged claims (5.4$\times$ enrichment), yielding an estimated net benefit of \$763,400 and 13.4$\times$ ROI. The pipeline includes out-of-fold stacking, isotonic calibration, fairness analysis using the 80\% disparate impact rule, batch drift monitoring, and temporal performance analysis. A 7-page Streamlit dashboard is deployed live on Hugging Face Spaces via Docker and GitHub Actions CI/CD, with all experiments tracked in MLflow.
+We present an end-to-end insurance fraud triage system trained on two heterogeneous datasets: the Vehicle Insurance Fraud Detection dataset (15,420 automotive claims, 5.99\% fraud rate) and the Medicare Provider Fraud dataset (558,211 claims across 5,410 providers, 9.35\% fraud rate). The primary model --- XGBoost with Optuna Bayesian tuning --- achieves a Validation PR-AUC of 0.3223 (+28\% over baseline) and a Test PR-AUC of 0.2443 on automotive claims, concentrating fraud at 32.5\% in the top 5\% of flagged claims (5.4$\times$ enrichment) and yielding an estimated net benefit of \$868,400 (ROI: 15.1$\times$). A cross-domain model trained on Medicare data achieves Test PR-AUC of 0.6869 with 8.9$\times$ SIU enrichment, validating methodology generalizability. The pipeline includes SHAP explainability, Retrieval-Augmented Generation (RAG) triage briefs, fairness analysis, drift monitoring, and a live 8-page Streamlit dashboard deployed on Hugging Face Spaces.
 \end{abstract}
 \vspace{6pt}
 \hrule
@@ -73,52 +68,55 @@ We present an end-to-end automotive insurance fraud triage system combining grad
 
 Insurance fraud costs the U.S. industry an estimated \$40 billion annually \cite{fbi}. Manual review of every claim is infeasible at scale --- insurers need an automated triage system that concentrates investigator effort on the highest-risk claims while approving low-risk claims automatically.
 
-This project builds a complete fraud triage pipeline on the Kaggle Vehicle Insurance Fraud Detection dataset \cite{kaggle}. The system addresses three core challenges: (1) accurate fraud risk scoring on a severely imbalanced dataset (6\% fraud rate), (2) explainable, policy-grounded predictions that non-technical investigators can act on, and (3) production-ready deployment with monitoring, fairness guarantees, and full experiment reproducibility.
+This project builds a complete fraud triage pipeline addressing three core challenges: (1) accurate fraud risk scoring on severely imbalanced datasets, (2) explainable, policy-grounded predictions that non-technical investigators can act on, and (3) production-ready deployment with monitoring, fairness guarantees, and full experiment reproducibility.
 
-A critical finding during development was that the original notebook included \texttt{PolicyNumber} as a model feature --- a row identifier with 15,420 unique values across 15,420 rows. This caused artificial PR-AUC inflation from 0.25 to 0.79 on the validation set and from 0.20 to 0.79 on the test set. All results reported here use the corrected pipeline with \texttt{PolicyNumber} excluded via \texttt{config.COLS\_TO\_DROP}.
+A critical finding during development was that the original notebook included \texttt{PolicyNumber} as a model feature --- a row identifier with 15,420 unique values across 15,420 rows. This caused artificial PR-AUC inflation from 0.25 to 0.79. All results reported here use the corrected pipeline with \texttt{PolicyNumber} excluded via \texttt{config.COLS\_TO\_DROP}.
 
 % ─────────────────────────────────────────────
 \section{Data Sources and Analysis}
 
-\subsection{Primary Dataset}
-The \texttt{fraud\_oracle.csv} dataset \cite{kaggle} contains 15,420 automotive insurance claims with 33 columns spanning claim characteristics, vehicle attributes, policy details, and claimant demographics. The target variable \texttt{FraudFound\_P} is binary (0 = legitimate, 1 = fraud) with a 5.99\% fraud rate (923 positive cases out of 15,420). Data is split 80/10/10 stratified by target: train (12,336), validation (1,542), and test (1,542). The validation set is used exclusively for model selection; the test set is touched once for final honest evaluation.
+\subsection{Primary Dataset --- Automotive Insurance}
+The \texttt{fraud\_oracle.csv} dataset \cite{kaggle} contains 15,420 automotive insurance claims with 33 columns. The target \texttt{FraudFound\_P} is binary with a 5.99\% fraud rate (923 positive cases). Data is split 80/10/10 stratified by target: train (12,336), validation (1,542), and test (1,542). The validation set is used exclusively for model selection; the test set is touched once for final honest evaluation.
 
-Key columns include: \texttt{AccidentArea} (Urban/Rural), \texttt{VehicleCategory} (Sport/Sedan/Utility), \texttt{BasePolicy} (Liability/Collision/All Perils), \texttt{Fault} (Policy Holder/Third Party), \texttt{PoliceReportFiled}, \texttt{WitnessPresent}, \texttt{AgentType} (Internal/External), \texttt{Days\_Policy\_Accident}, \texttt{PastNumberOfClaims}, and \texttt{NumberOfSuppliments}.
+Key features include: \texttt{AccidentArea}, \texttt{VehicleCategory}, \texttt{BasePolicy}, \texttt{Fault}, \texttt{PoliceReportFiled}, \texttt{WitnessPresent}, \texttt{AgentType}, \texttt{Days\_Policy\_Accident}, and \texttt{NumberOfSuppliments}.
 
-\subsection{Data Quality and Validation}
-A Pandera schema validation layer runs before any processing. Ten checks are enforced: row count $>$ 100, no duplicate rows, no missing values in key columns, fraud rate $<$ 50\%, age range 16--100, deductible validity, binary target, and valid categorical values for \texttt{Fault}, \texttt{BasePolicy}, and \texttt{PoliceReportFiled}. One check fails on the raw data: 320 rows contain \texttt{Age = 0}, a placeholder for unknown age. The pipeline proceeds with a warning; these rows are retained and the zero age is handled by downstream ordinal encoding.
+\subsection{Secondary Dataset --- Medicare Provider Fraud}
+The Medicare Provider Fraud dataset \cite{medicare} consists of four CSV files: provider labels (5,410 providers), inpatient claims (40,474 records), outpatient claims (517,737 records), and beneficiary demographics (138,556 records). The target \texttt{PotentialFraud} is binary at the provider level with a 9.35\% fraud rate (506 of 5,410 providers).
 
-\subsection{Fraud Guideline Documents}
-A second data source consists of four internal fraud guideline documents (56 text chunks total) curated for the RAG pipeline: \texttt{fraud\_red\_flags.md} (common fraud indicators and vehicle risk factors), \texttt{triage\_procedures.md} (three-tier triage framework and SIU protocols), \texttt{policy\_coverage\_standards.md} (coverage types and deductible patterns), and \texttt{staged\_accident\_patterns.md} (staged accident schemes and investigation procedures). These documents ground both the feature engineering and the AI-generated triage briefs in actual insurance domain knowledge.
+\textbf{Data integration:} The four files are joined on \texttt{Provider ID}. Claim-level data is aggregated to provider-level features via \texttt{groupby} (count, mean, sum, nunique). Missing values from providers absent in a given file are filled with zero. The resulting feature matrix has 5,410 rows and 22 features. Label encoding converts \texttt{"Yes"/"No"} to binary 1/0.
+
+\subsection{Data Validation}
+A Pandera schema validation layer enforces ten checks on the automotive dataset before any processing: row count $>$ 100, no duplicate rows, no missing values in key columns, fraud rate $<$ 50\%, age range 16--100, deductible validity, binary target, and valid categorical values. One check fails on the raw data: 320 rows contain \texttt{Age = 0}, a placeholder for unknown age. The pipeline proceeds with a warning.
 
 \subsection{Exploratory Data Analysis}
-EDA reveals several patterns consistent with fraud literature: (1) claims with no police report filed have a 2.1$\times$ higher fraud rate than those with a report; (2) external agent claims show a 1.8$\times$ higher fraud rate than internal agent claims; (3) sport vehicle claims have a 1.6$\times$ higher fraud rate; (4) claims filed within 1 week of policy inception (\texttt{VeryEarlyClaimFlag}) show a 3.2$\times$ enrichment. These patterns directly inform the guideline-grounded feature engineering described in Section~\ref{sec:features}.
+EDA on the automotive dataset reveals: claims with no police report have a 2.1$\times$ higher fraud rate; external agent claims show 1.8$\times$ higher fraud rate; sport vehicle claims show 1.6$\times$ higher fraud rate; claims filed within 7 days of policy inception show 3.2$\times$ enrichment. These patterns directly inform the guideline-grounded feature engineering.
+
+On the Medicare dataset, providers with 500+ claims show a 51.8\% fraud rate vs. the 9.4\% baseline --- systematic high-volume billing is the dominant fraud signal.
 
 % ─────────────────────────────────────────────
 \section{Feature Engineering}
-\label{sec:features}
 
-We engineer 41 features from 31 raw columns across six categories:
+We engineer 41 features from 31 raw automotive columns across six categories:
 
 \begin{enumerate}[leftmargin=*, itemsep=1pt]
-    \item \textbf{Ordinal encoding} (13 features) --- string-range columns (e.g., \texttt{"2 to 4"} $\rightarrow$ 3.0) converted to numeric midpoints using domain-specific maps for age, vehicle age, past claims, supplements, and address change recency.
-    \item \textbf{Time-based features} (3 features) --- \texttt{WeekGap} (days between accident and claim), circular \texttt{MonthGap}, and \texttt{SameDayOfWeek} (accident and claim on same weekday).
-    \item \textbf{Binary risk flags} (6 features) --- \texttt{NoPoliceReport}, \texttt{NoWitness}, \texttt{PolicyHolderFault}, \texttt{YoungDriver} (age $\leq$ 25), \texttt{HasPastClaims}, \texttt{WeekendAccident}.
-    \item \textbf{Interaction features} (5 features) --- \texttt{Age\_x\_Deductible}, \texttt{Fault\_NoPolice}, \texttt{PriceToDeductible}, \texttt{Age\_x\_PastClaims}, \texttt{Cars\_x\_Supplements}.
-    \item \textbf{Guideline-grounded flags} (7 features) --- derived directly from fraud guideline documents: \texttt{Liability\_NoPolice} (liability policy + no police report), \texttt{HighValue\_Liability} (vehicle price $>$ \$30K + liability policy), \texttt{Sport\_YoungDriver} (sport vehicle + driver age $\leq$ 25), \texttt{VeryEarlyClaimFlag} (claim within 7 days of policy), \texttt{EarlyClaimFlag} (claim within 30 days), \texttt{HighSupplements} ($\geq$ 4 supplements), \texttt{ExternalAgent\_NoPolice}.
-    \item \textbf{Composite} (1 feature) --- \texttt{RiskFlagCount} (sum of 14 binary risk indicators).
+    \item \textbf{Ordinal encoding} (13) --- string-range columns converted to numeric midpoints
+    \item \textbf{Time-based} (3) --- \texttt{WeekGap}, circular \texttt{MonthGap}, \texttt{SameDayOfWeek}
+    \item \textbf{Binary risk flags} (6) --- \texttt{NoPoliceReport}, \texttt{NoWitness}, \texttt{PolicyHolderFault}, \texttt{YoungDriver}, \texttt{HasPastClaims}, \texttt{WeekendAccident}
+    \item \textbf{Interaction features} (5) --- \texttt{Age\_x\_Deductible}, \texttt{Fault\_NoPolice}, \texttt{PriceToDeductible}, \texttt{Age\_x\_PastClaims}, \texttt{Cars\_x\_Supplements}
+    \item \textbf{Guideline-grounded flags} (7) --- derived directly from fraud guideline documents: \texttt{Liability\_NoPolice}, \texttt{HighValue\_Liability}, \texttt{Sport\_YoungDriver}, \texttt{VeryEarlyClaimFlag}, \texttt{EarlyClaimFlag}, \texttt{HighSupplements}, \texttt{ExternalAgent\_NoPolice}
+    \item \textbf{Composite} (1) --- \texttt{RiskFlagCount} (sum of 14 binary indicators)
 \end{enumerate}
 
-The guideline-grounded features prove highly predictive: \texttt{Liability\_NoPolice} ranks second in global SHAP importance (mean $|\text{SHAP}|$ = 0.546), directly reflecting the staged accident profile described in the fraud documentation.
+For Medicare, 22 provider-level features are derived from aggregated claims: total/average reimbursement amounts, claim counts, unique patient and physician counts, inpatient ratio, and beneficiary chronic condition averages.
 
 % ─────────────────────────────────────────────
 \section{Methodology}
 
 \subsection{Preprocessing Pipeline}
-A scikit-learn \texttt{ColumnTransformer} applies median imputation followed by standard scaling to numeric features, and one-hot encoding to categorical features. The transformer is fit on the training set only and applied to validation and test sets to prevent data leakage. After transformation, the feature matrix has 129 columns.
+A scikit-learn \texttt{ColumnTransformer} applies median imputation and standard scaling to numeric features, and one-hot encoding to categorical features. The transformer is fit on the training set only and applied to validation and test sets to prevent leakage. After transformation, the automotive feature matrix has 90 columns.
 
 \subsection{Baseline Models}
-Three baseline models are trained on the full feature set: Logistic Regression (L2 regularization, \texttt{class\_weight=`balanced'}), XGBoost (gradient boosted trees, \texttt{eval\_metric=`aucpr'}, early stopping at 50 rounds), and LightGBM (gradient boosted trees, early stopping at 50 rounds). PR-AUC is used as the primary metric throughout --- it is appropriate for imbalanced classification where ROC-AUC can be misleadingly optimistic due to the large number of true negatives.
+Three baseline models are trained: Logistic Regression (L2, \texttt{class\_weight=`balanced'}), XGBoost (\texttt{eval\_metric=`aucpr'}, early stopping at 50 rounds), and LightGBM (early stopping at 50 rounds). PR-AUC is used as the primary metric throughout --- it is appropriate for imbalanced classification where ROC-AUC can be misleadingly optimistic.
 
 \begin{table}[h]
 \centering
@@ -136,21 +134,21 @@ Logistic Reg.  & 0.1677          & 0.8108 & 0.1818 \\
 \end{table}
 
 \subsection{Bayesian Hyperparameter Optimization}
-XGBoost and CatBoost are tuned independently using Optuna's Tree-structured Parzen Estimator (TPE) --- a Bayesian optimization algorithm that builds a probabilistic model of the objective function and samples from regions likely to improve it, outperforming random or grid search \cite{optuna}. Each study runs 20 trials with 3-fold stratified cross-validation per trial (objective: mean PR-AUC), subject to a 300-second wall-clock timeout. The search space for XGBoost includes \texttt{learning\_rate} [0.01, 0.3], \texttt{max\_depth} [3, 9], \texttt{n\_estimators} [200, 1000], \texttt{subsample} [0.6, 1.0], and \texttt{colsample\_bytree} [0.6, 1.0].
+XGBoost and CatBoost are tuned independently using Optuna's Tree-structured Parzen Estimator (TPE) \cite{optuna} --- a Bayesian optimization algorithm that builds a probabilistic model of the objective function and samples from regions likely to improve it, outperforming random or grid search. Each study runs 20 trials with 3-fold stratified cross-validation per trial (objective: mean PR-AUC), subject to a 300-second wall-clock timeout.
 
 \subsection{Out-of-Fold Stacking Ensemble}
-An OOF stacking ensemble combines XGBoost (Optuna) and CatBoost (Optuna) as base learners with Logistic Regression as the meta-learner. Base learner predictions are generated using 5-fold cross-validation to avoid target leakage into the meta-features. The meta-learner is trained on the OOF predictions and applied to held-out validation and test sets.
+An OOF stacking ensemble combines XGBoost (Optuna) and CatBoost (Optuna) as base learners with Logistic Regression as the meta-learner. Base learner predictions are generated using 5-fold cross-validation to avoid target leakage into the meta-features.
 
 \subsection{Isotonic Calibration}
-The best model's predicted probabilities are calibrated using isotonic regression on the validation set. Calibration is assessed via a reliability diagram (calibration curve): a well-calibrated model's curve lies close to the diagonal, meaning a predicted probability of 0.7 corresponds to a 70\% actual fraud rate in that bin.
+The best model's predicted probabilities are calibrated using isotonic regression on the validation set, ensuring that predicted probabilities are reliable estimates of actual fraud likelihood.
 
 \subsection{Validation Strategy}
-Model selection is performed exclusively on the validation set. The test set is used once, after the best model is selected, to report honest generalization performance. 5-fold cross-validation on the training set provides an additional stability estimate: CV PR-AUC = $0.2164 \pm 0.0248$.
+Model selection is performed exclusively on the validation set. The test set is used once, after the best model is selected, to report honest generalization performance. 5-fold cross-validation on the training set provides an additional stability estimate: CV PR-AUC = $0.2621 \pm 0.0248$.
 
 % ─────────────────────────────────────────────
-\section{Results}
+\section{Results and Visualizations}
 
-\subsection{Model Performance}
+\subsection{Automotive Insurance Model Performance}
 
 \begin{table}[h]
 \centering
@@ -167,72 +165,135 @@ CatBoost (Optuna)    & 0.2879          & 0.8630 & +14.3\% \\
 \end{tabular}
 \end{table}
 
-XGBoost (Optuna) is selected as the best model. On the completely held-out test set: \textbf{Test PR-AUC = 0.2443}, Test ROC-AUC = 0.8331, Precision@5\% = 0.2727, Recall@5\% = 0.2283. The gap between validation PR-AUC (0.3223) and test PR-AUC (0.2443) is expected --- the model was tuned on validation data, so validation metrics are slightly optimistic. The test result is the honest estimate of real-world performance.
-
-At the operational threshold (top 5\% of risk scores), the confusion matrix on the test set is: TN = 1,393, FP = 57, FN = 71, TP = 21. Precision = 0.269, Recall = 0.228.
+XGBoost (Optuna) is selected as the best model. On the completely held-out test set: \textbf{Test PR-AUC = 0.2443}, Test ROC-AUC = 0.8331, Precision@5\% = 0.3247, Recall@5\% = 0.2688. The gap between validation (0.3223) and test (0.2443) PR-AUC is expected --- the model was tuned on validation data, so validation metrics are slightly optimistic.
 
 \subsection{Triage Bucket Performance}
 
 \begin{table}[h]
 \centering
-\caption{Triage Bucket Performance (Test Set)}
+\caption{Triage Bucket Performance --- Automotive (Test Set)}
 \small
 \begin{tabular}{lccc}
 \toprule
-\textbf{Bucket} & \textbf{Count} & \textbf{Fraud Rate} & \textbf{Enrichment} \\
+\textbf{Bucket} & \textbf{Count} & \textbf{Fraud Rate} & \textbf{Enrich.} \\
 \midrule
-SIU (top 5\%)          & 77    & 32.5\% & 5.4$\times$ \\
-Manual Review (15\%)   & 231   & 16.0\% & 2.7$\times$ \\
-Approve (80\%)         & 1,234 & 2.5\%  & 0.4$\times$ \\
+SIU (top 5\%)        & 77    & 32.5\% & 5.4$\times$ \\
+Manual Review (15\%) & 231   & 16.0\% & 2.7$\times$ \\
+Approve (80\%)       & 1,234 & 2.5\%  & 0.4$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The SIU bucket achieves a 5.4$\times$ fraud enrichment over the base rate (6\%), meaning investigators reviewing SIU claims encounter fraud at more than five times the background rate. The Approve bucket's 2.5\% fraud rate is below the base rate, confirming that low-risk claims are correctly filtered out.
-
-\subsection{Business ROI Analysis}
-Using cost assumptions of \$15,000 average fraud loss, \$500 per SIU investigation, and \$100 per manual review: fraud claims caught = 55, losses prevented = \$825,000, investigation costs = \$61,600, net benefit = \$763,400, \textbf{ROI = 13.4$\times$}. This demonstrates that even a modest fraud detection rate on an imbalanced dataset produces substantial business value when the cost of investigation is low relative to the cost of undetected fraud.
+\subsection{Business ROI}
+Using cost assumptions of \$15,000 average fraud loss, \$500 per SIU investigation, and \$100 per manual review: fraud claims caught = 62, losses prevented = \$930,000, investigation costs = \$61,600, net benefit = \$868,400, \textbf{ROI = 15.1$\times$}.
 
 \subsection{SHAP Explainability}
-Global feature importance (mean $|\text{SHAP}|$ across test set) reveals that the top drivers are \texttt{Fault} (0.823), \texttt{Liability\_NoPolice} (0.546), \texttt{PolicyHolderFault} (0.246), and \texttt{Fault\_NoPolice} (0.244). Two of the top four features are guideline-grounded engineered features, validating the feature engineering approach. Per-claim reason codes are generated using longest-prefix matching to correctly decode one-hot encoded feature names containing underscores (e.g., \texttt{AddressChange\_Claim\_2 to 3 years}).
+Global feature importance (mean $|\text{SHAP}|$ across test set) reveals that the top drivers are \texttt{Fault} (0.823), \texttt{Liability\_NoPolice} (0.546), \textbf{PolicyHolderFault} (0.246), and \texttt{Fault\_NoPolice} (0.244). Two of the top four features are guideline-grounded engineered features, validating the feature engineering approach.
+
+\subsection{Dashboard}
+Figure~\ref{fig:dashboard} shows the Summary Dashboard page of the live Streamlit application, displaying KPI cards, the Precision-Recall curve (test set), model comparison table, risk score distribution, SHAP global importance, triage bucket fraud rates, business ROI, confusion matrix, and calibration curve.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{summary_dashboard.png}
+\caption{Summary Dashboard --- live at \href{https://huggingface.co/spaces/Mriks/fraud-triage}{huggingface.co/spaces/Mriks/fraud-triage}}
+\label{fig:dashboard}
+\end{figure}
+
+Figure~\ref{fig:prcurve} shows the Precision-Recall curve on the held-out test set. The curve lifts well above the 6\% random baseline, with PR-AUC = 0.2443 representing a 4.1$\times$ improvement over random.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{pr_curve_test.png}
+\caption{PR curve on test set (XGBoost Optuna). Source: \texttt{outputs/plots/pr\_curve\_xgboost\_optuna\_test.png}}
+\label{fig:prcurve}
+\end{figure}
+
+Figure~\ref{fig:modelcomp} shows PR-AUC improvement across all improved models vs. the XGBoost baseline.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{model_comparison.png}
+\caption{Model comparison chart. Source: \texttt{outputs/improvement/model\_comparison\_chart.png}}
+\label{fig:modelcomp}
+\end{figure}
+
+\subsection{Medicare Model Performance}
+
+\begin{table}[h]
+\centering
+\caption{Cross-Domain Model Comparison}
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metric} & \textbf{Auto} & \textbf{Medicare} \\
+\midrule
+Val PR-AUC      & 0.3223 & \textbf{0.7874} \\
+Test PR-AUC     & 0.2443 & \textbf{0.6869} \\
+Val ROC-AUC     & 0.8595 & \textbf{0.9646} \\
+SIU Fraud Rate  & 32.5\% & \textbf{82.9\%} \\
+SIU Enrichment  & 5.4$\times$ & \textbf{8.9$\times$} \\
+CV PR-AUC       & $0.262 \pm 0.025$ & $0.679 \pm 0.037$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Medicare model achieves significantly higher PR-AUC for three reasons: (1) \textbf{stronger fraud signal} --- Medicare fraud is systematic overbilling across hundreds of claims, making \texttt{TotalReimbursed} (SHAP = 1.131) a dominant predictor; (2) \textbf{aggregation amplifies patterns} --- provider-level features remove individual claim noise and amplify systematic billing behavior; (3) \textbf{different fraud mechanism} --- Medicare fraud is a repeated business operation, while auto insurance fraud is a one-time opportunistic event.
+
+\subsection{Key Cross-Domain Finding}
+The top SHAP features are completely different across domains:
+\begin{itemize}[leftmargin=*, itemsep=1pt]
+    \item \textbf{Auto:} \texttt{Fault} (0.823), \texttt{Liability\_NoPolice} (0.546) --- claim characteristics
+    \item \textbf{Medicare:} \texttt{TotalReimbursed} (1.131), \texttt{TotalInpatientAmt} (0.288) --- billing volume
+\end{itemize}
+
+Figure~\ref{fig:shap} illustrates this contrast. The methodology transfers across domains, but the features do not --- domain-specific feature engineering is essential.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{shap_comparison.png}
+\caption{SHAP feature importance: auto insurance (left) vs. Medicare (right). Source: \texttt{outputs/medicare/shap\_comparison.png}}
+\label{fig:shap}
+\end{figure}
+
+% ─────────────────────────────────────────────
+\section{Fairness, Monitoring, and Temporal Analysis}
 
 \subsection{Fairness Analysis}
-Applying the 80\% disparate impact rule across sex, age group, and marital status: the model flags males at $\sim$22\% vs. females at $\sim$12\%, yielding a disparate impact ratio of 0.574 (below the 0.80 threshold). Age groups 26--35 and 36--50 show ratios above 0.80 (compliant). Groups with fewer than 30 claims (Widow, 65+) are excluded from the calculation. The sex disparity may reflect genuine fraud patterns in the data or proxy discrimination via correlated features such as \texttt{VehicleCategory} and \texttt{AgentType}, warranting further investigation before production deployment.
+The 80\% disparate impact rule is applied across sex, age group, and marital status. The model flags males at $\sim$22\% vs. females at $\sim$12\%, yielding a disparate impact ratio of 0.574 (below the 0.80 threshold). This may reflect genuine fraud patterns or proxy discrimination via correlated features such as \texttt{VehicleCategory} and \texttt{AgentType}, warranting further investigation before production deployment.
 
-\subsection{Temporal and Monitoring Analysis}
-Month-by-month evaluation reveals significant performance variation: PR-AUC ranges from 0.11 (November) to 0.71 (December), suggesting seasonal fraud patterns. Precision@5\% drops to 0 in October and November, indicating months where fraud is not concentrated at the top of the risk ranking. Batch drift monitoring (6 time-ordered batches) detects feature distribution drift using the Kolmogorov-Smirnov test; Batch 5 shows drift in 14.3\% of numeric features, flagging a potential distribution shift that would warrant model retraining in production.
+\subsection{Model Monitoring}
+The test set is split into 6 time-ordered batches to simulate production monitoring. Feature distribution drift is detected using the Kolmogorov-Smirnov test (with Evidently as an optional enhanced backend). Batch 5 shows drift in 14.3\% of numeric features, flagging a potential distribution shift that would warrant model retraining in production.
 
-% ─────────────────────────────────────────────
-\section{RAG Pipeline}
-
-The RAG pipeline indexes 4 fraud guideline documents (56 chunks) using ChromaDB with \texttt{all-MiniLM-L6-v2} sentence embeddings \cite{chromadb}. For each claim, a retrieval query is constructed from claim attributes and SHAP reason codes. The top-5 relevant passages are retrieved and passed to GPT-4o-mini \cite{openai} along with claim data to generate a natural language triage brief with citations to specific guideline passages. A structured template fallback operates without an API key, ensuring the system is fully functional in air-gapped environments. The ChromaDB index is persisted to disk after the first build and reused on subsequent runs.
+\subsection{Temporal Analysis}
+Month-by-month evaluation reveals significant performance variation: PR-AUC ranges from 0.11 (November) to 0.71 (December), suggesting seasonal fraud patterns. Precision@5\% drops to 0 in October and November, indicating months where fraud is not concentrated at the top of the risk ranking.
 
 % ─────────────────────────────────────────────
-\section{Production Engineering}
+\section{RAG Pipeline and Production Engineering}
+
+\subsection{RAG Triage Briefs}
+The RAG pipeline indexes 4 internal fraud guideline documents (56 chunks) using ChromaDB \cite{chromadb} with \texttt{all-MiniLM-L6-v2} sentence embeddings. For each claim, a retrieval query is constructed from claim attributes and SHAP reason codes. The top-5 relevant passages are retrieved and passed to GPT-4o-mini \cite{openai} to generate a natural language triage brief with citations. A structured template fallback operates without an API key.
 
 \subsection{Pipeline and Experiment Tracking}
-A single \texttt{train.py} entry point orchestrates all five pipeline steps: data validation, base modeling, SHAP analysis, model improvement, and RAG index build. All settings live in \texttt{training\_config.yaml}. Every run is logged to MLflow with nested runs: \texttt{full\_pipeline} (parent) logs dataset statistics, validation results, and total runtime; \texttt{base\_modeling} (child) logs dataset sizes and best base model PR-AUC; \texttt{model\_improvement} (child) logs all model metrics, Optuna parameters, business ROI, and the best model \texttt{.joblib} artifact.
+A single \texttt{train.py} entry point orchestrates all five pipeline steps with MLflow nested run logging: \texttt{full\_pipeline} (parent) logs dataset statistics and runtime; \texttt{base\_modeling} logs dataset sizes and best base model PR-AUC; \texttt{model\_improvement} logs all model metrics, Optuna parameters, business ROI, and the best model \texttt{.joblib} artifact.
 
 \subsection{Testing and CI/CD}
-60+ pytest tests cover feature engineering correctness (ordinal encoding values, guideline flag logic), data preprocessing (split ratios, no overlap, stratification, no NaN after transform), modeling utilities (triage bucket counts, ROI calculation, reason code generation), and the RAG pipeline (chunking, query building, template brief generation). Two GitHub Actions workflows run on every push to \texttt{main}: \texttt{tests.yml} runs the full test suite and blocks deployment on failure; \texttt{deploy.yml} pushes the latest code to Hugging Face Spaces.
-
-\subsection{Deployment}
-The application is containerized using Docker and deployed to Hugging Face Spaces at \href{https://huggingface.co/spaces/Mriks/fraud-triage}{\texttt{huggingface.co/spaces/Mriks/fraud-triage}}. A lightweight \texttt{Dockerfile.slim} is provided for local testing. The 7-page Streamlit dashboard provides: (1) Summary Dashboard with KPIs, PR curve, confusion matrix, calibration curve, SHAP importance, and ROI; (2) Review Queue with ranked claims; (3) Claim Detail with SHAP waterfall and RAG brief; (4) Live Scoring for new claims; (5) Fairness Analysis; (6) Model Monitoring; and (7) Temporal Analysis. Each page includes a collapsible \textbf{i} explanation panel for non-technical users.
+60+ pytest tests cover feature engineering correctness, data preprocessing, modeling utilities, and the RAG pipeline. Two GitHub Actions workflows run on every push: \texttt{tests.yml} blocks deployment on test failure; \texttt{deploy.yml} pushes to Hugging Face Spaces. The application is containerized using Docker and deployed live at \href{https://huggingface.co/spaces/Mriks/fraud-triage}{\texttt{huggingface.co/spaces/Mriks/fraud-triage}}.
 
 % ─────────────────────────────────────────────
 \section{Conclusions and Recommendations}
 
-This project demonstrates that a well-engineered fraud triage system can deliver substantial business value even on a modestly sized, imbalanced dataset. The key contributions are:
+This project demonstrates that a well-engineered fraud triage system delivers substantial business value across multiple insurance domains. Key contributions:
 
 \begin{enumerate}[leftmargin=*, itemsep=1pt]
-    \item \textbf{Data leakage detection} --- identifying and correcting \texttt{PolicyNumber} leakage that inflated PR-AUC from 0.25 to 0.79, a critical step that many practitioners miss.
-    \item \textbf{Guideline-grounded features} --- 7 features derived from fraud documentation that rank among the top SHAP drivers, bridging domain knowledge and ML.
-    \item \textbf{Honest evaluation} --- strict train/val/test separation with the test set touched once, yielding a credible Test PR-AUC of 0.2443.
-    \item \textbf{Actionable explainability} --- per-claim SHAP reason codes and RAG-generated triage briefs with guideline citations that investigators can act on immediately.
+    \item \textbf{Data leakage detection} --- identifying and correcting \texttt{PolicyNumber} leakage that inflated PR-AUC from 0.25 to 0.79.
+    \item \textbf{Two heterogeneous datasets} --- automotive insurance (15,420 claims) and Medicare provider fraud (558,211 claims), demonstrating cross-domain methodology generalizability.
+    \item \textbf{Guideline-grounded features} --- 7 features derived from fraud documentation that rank among the top SHAP drivers.
+    \item \textbf{Honest evaluation} --- strict train/val/test separation with the test set touched once, yielding credible Test PR-AUC of 0.2443 (auto) and 0.6869 (Medicare).
     \item \textbf{Production readiness} --- MLflow tracking, 60+ tests, CI/CD, Docker deployment, and live Hugging Face hosting.
 \end{enumerate}
 
-\textbf{Recommendations for production deployment:} (1) Investigate the sex disparate impact ratio (0.574) to determine whether it reflects genuine fraud patterns or proxy discrimination before regulatory submission. (2) Retrain the model when batch drift monitoring detects distribution shift (as observed in Batch 5). (3) Impute \texttt{Age = 0} records with the median age rather than passing them through as-is. (4) Expand the training dataset --- the 923 positive cases limit the model's ability to learn rare fraud patterns; additional labeled data would likely improve Test PR-AUC substantially.
+\textbf{Recommendations:} (1) Investigate the sex disparate impact ratio (0.574) before regulatory submission. (2) Retrain when batch drift monitoring detects distribution shift. (3) Impute \texttt{Age = 0} records with the median age. (4) Expand the training dataset --- the 923 positive automotive cases limit the model's ability to learn rare fraud patterns; additional labeled data would likely improve Test PR-AUC substantially.
 
 % ─────────────────────────────────────────────
 \begin{thebibliography}{9}
@@ -242,6 +303,12 @@ S. Bansal.
 \textit{Vehicle Insurance Fraud Detection Dataset}.
 Kaggle, 2021.
 \url{https://www.kaggle.com/datasets/shivamb/vehicle-claim-fraud-detection}
+
+\bibitem{medicare}
+RohitRox.
+\textit{Healthcare Provider Fraud Detection Analysis}.
+Kaggle, 2019.
+\url{https://www.kaggle.com/datasets/rohitrox/healthcare-provider-fraud-detection-analysis}
 
 \bibitem{fbi}
 Federal Bureau of Investigation.
@@ -255,7 +322,7 @@ S. M. Lundberg and S.-I. Lee.
 NeurIPS, 2017.
 
 \bibitem{optuna}
-T. Akiba, S. Sano, T. Yanase, T. Ohta, and M. Koyama.
+T. Akiba et al.
 \textit{Optuna: A Next-generation Hyperparameter Optimization Framework}.
 KDD, 2019.
 
