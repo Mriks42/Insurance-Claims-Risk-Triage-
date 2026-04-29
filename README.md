@@ -45,6 +45,10 @@ An end-to-end fraud triage system for automotive insurance claims that:
 |:-:|:-:|
 | ![Hugging Face Spaces deployment](images/9.png) |  |
 
+| Dataset Comparison |  |
+|:-:|:-:|
+| ![Dataset Comparison — Automotive vs. Medicare](images/10.png) |  |
+
 ---
 
 ## Table of Contents
