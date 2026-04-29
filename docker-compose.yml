@@ -1,0 +1,60 @@
+version: "3.9"
+
+# ============================================================
+# Docker Compose — Fraud Triage Dashboard
+# ============================================================
+# Start:   docker-compose up
+# Stop:    docker-compose down
+# Rebuild: docker-compose up --build
+# ============================================================
+
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fraud-triage-dashboard
+    ports:
+      - "8501:8501"       # Streamlit dashboard
+    volumes:
+      # Mount outputs so model artifacts persist between container restarts
+      - ./outputs:/app/outputs
+      # Mount .env so OpenAI key is available inside the container
+      - ./.env:/app/.env:ro
+      # Mount the dataset
+      - ./fraud_oracle.csv:/app/fraud_oracle.csv:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Optional: MLflow tracking server
+  mlflow:
+    image: python:3.11-slim
+    container_name: fraud-triage-mlflow
+    working_dir: /app
+    volumes:
+      - ./mlruns:/app/mlruns
+    ports:
+      - "5000:5000"       # MLflow UI
+    command: >
+      bash -c "pip install mlflow --quiet &&
+               mlflow server
+               --host 0.0.0.0
+               --port 5000
+               --backend-store-uri /app/mlruns
+               --default-artifact-root /app/mlruns"
+    restart: unless-stopped
+    profiles:
+      - mlflow             # only starts with: docker-compose --profile mlflow up
+
+networks:
+  default:
+    name: fraud-triage-network

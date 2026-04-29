@@ -40,3 +40,24 @@ Thumbs.db
 
 # Kiro
 .kiro/
+
+# MLflow
+mlruns/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Large model artifacts
+outputs/improvement/*.joblib
+outputs/models/*.joblib
+
+# Chroma DB (rebuilt on first run)
+outputs/rag/chroma_db/
+
+# New output dirs
+outputs/fairness/
+outputs/monitoring/
+outputs/temporal/

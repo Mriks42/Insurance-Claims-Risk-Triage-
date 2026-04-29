@@ -1,0 +1,73 @@
+# ============================================================
+# GitHub Actions — Auto-deploy to Hugging Face Spaces
+# ============================================================
+# Triggers on every push to main branch.
+# Syncs the repo to your Hugging Face Space automatically.
+#
+# Setup (one time):
+#   1. Go to huggingface.co → Settings → Access Tokens
+#   2. Create a token with "write" permission
+#   3. Go to your GitHub repo → Settings → Secrets → Actions
+#   4. Add secret: HF_TOKEN = your_token_value
+#   5. Add secret: HF_USERNAME = your_huggingface_username
+#   6. Add secret: HF_SPACE_NAME = fraud-triage  (or whatever you name it)
+# ============================================================
+
+name: Deploy to Hugging Face Spaces
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:    # allows manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install huggingface_hub
+        run: pip install huggingface_hub
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN:      ${{ secrets.HF_TOKEN }}
+          HF_USERNAME:   ${{ secrets.HF_USERNAME }}
+          HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+        run: |
+          python - <<'EOF'
+          from huggingface_hub import HfApi
+          import os
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          repo_id = f"{os.environ['HF_USERNAME']}/{os.environ['HF_SPACE_NAME']}"
+
+          api.upload_folder(
+              folder_path=".",
+              repo_id=repo_id,
+              repo_type="space",
+              ignore_patterns=[
+                  ".git*",
+                  "__pycache__",
+                  "*.pyc",
+                  ".env",
+                  "fraud_oracle.csv",   # dataset not uploaded (too large / Kaggle TOS)
+                  "outputs/models/*",
+                  "outputs/improvement/*.joblib",
+                  "mlruns/",
+                  "tests/",
+              ],
+              commit_message=f"Auto-deploy from GitHub Actions",
+          )
+          print(f"Deployed to: https://huggingface.co/spaces/{repo_id}")
+          EOF

@@ -27,6 +27,22 @@ openai>=1.0
 # Environment / config
 python-dotenv>=1.0
 
-# Web application (Phase 6)
+# Web application
 streamlit>=1.30
 plotly>=5.18
+
+# Experiment tracking
+mlflow>=2.10
+
+# Data validation
+pandera>=0.18
+
+# Testing
+pytest>=7.4
+pytest-cov>=4.1
+
+# Monitoring / drift detection
+evidently>=0.4
+
+# Config management
+pyyaml>=6.0

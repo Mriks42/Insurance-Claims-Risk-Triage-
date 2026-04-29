@@ -1,0 +1,57 @@
+# ============================================================
+# GitHub Actions — Run Tests on Every Push
+# ============================================================
+# Runs pytest automatically whenever you push code.
+# Shows a green checkmark or red X on your GitHub repo.
+# ============================================================
+
+name: Run Tests
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ \
+            --tb=short \
+            --cov=. \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            -v \
+            --ignore=tests/test_modeling_utils.py  # skip app-dependent tests in CI
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false

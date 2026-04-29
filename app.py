@@ -354,7 +354,8 @@ def render_sidebar(metadata):
         page = st.radio(
             "Navigate",
             ["📊 Summary Dashboard", "📋 Review Queue",
-             "🔎 Claim Detail", "⚡ Live Scoring"],
+             "🔎 Claim Detail", "⚡ Live Scoring",
+             "⚖️ Fairness Analysis", "📡 Monitoring", "📅 Temporal Analysis"],
             label_visibility="collapsed",
         )
 
@@ -390,6 +391,19 @@ def render_sidebar(metadata):
 def page_summary(metadata, val_prob, test_prob, y_test, shap_imp, model_comparison):
     st.title("📊 Summary Dashboard")
     st.caption("Real-time fraud risk overview — test set (1,542 claims, completely unseen during training)")
+
+    with st.expander("ℹ️", expanded=False):
+        st.markdown("""
+        This page gives a high-level overview of how the fraud detection model is performing.
+
+        - **SIU (Special Investigations Unit)** — the top 5% highest-risk claims. These are automatically escalated for a full field investigation before any payment is made.
+        - **Manual Review** — the next 15% of claims. A human reviewer checks these before approving.
+        - **Approve** — the remaining 80% of claims pass through automated processing.
+        - **PR-AUC** — the primary model performance metric. Higher is better. It measures how well the model ranks fraud above non-fraud, accounting for the fact that only ~6% of claims are fraudulent.
+        - **ROI** — the estimated return on investment from catching fraud. Calculated as: (fraud losses prevented) ÷ (investigation costs).
+        - **SHAP importance** — shows which claim features most influence the model's fraud score. Longer bar = more influential.
+        """)
+
 
     # Compute ROI from test set (consistent with all other test set metrics)
     roi = compute_test_roi(test_prob, y_test)
@@ -576,6 +590,20 @@ def page_queue(df_raw, val_prob, y_val):
     st.title("📋 Review Queue")
     st.caption("Claims ranked by fraud risk score — highest risk first.")
 
+    with st.expander("ℹ️", expanded=False):
+        st.markdown("""
+        This is the working queue an insurance investigator would use every day.
+
+        - Claims are **ranked by risk score** — the highest-risk claims appear at the top.
+        - **🔴 SIU** claims (top 5%) should be investigated before any payment is made.
+        - **🟡 Manual Review** claims (next 15%) need a human to verify the details.
+        - **🟢 Approve** claims (bottom 80%) can be processed automatically.
+        - Use the **filters on the left** to focus on a specific bucket or score range.
+        - Click **View Claim →** at the bottom to jump to the full detail view for any claim.
+        - **Actual Fraud** column shows the ground truth — useful for evaluating model accuracy.
+        """)
+
+
     all_scores = val_prob
     y_arr      = np.array(y_val)
 
@@ -657,6 +685,19 @@ def page_queue(df_raw, val_prob, y_val):
 def page_detail(df_raw, val_prob, y_val, shap_values, explainer,
                 feat_names, cat_cols, rag):
     st.title("🔎 Claim Detail")
+
+    with st.expander("ℹ️", expanded=False):
+        st.markdown("""
+        This page gives a full breakdown of a single claim — why the model scored it the way it did.
+
+        - **Risk Score** — the model's estimated probability that this claim is fraudulent (0 = definitely legitimate, 1 = definitely fraud).
+        - **Triage Bucket** — which investigation tier this claim falls into based on its score.
+        - **SHAP waterfall chart** — shows exactly which features pushed the score up (red = increases fraud risk) or down (green = decreases fraud risk). This is the "why" behind the score.
+        - **Reason Codes** — plain-English summary of the top risk drivers, suitable for a non-technical investigator.
+        - **Triage Brief** — click the button to generate an AI-written investigation brief that cites specific internal fraud guidelines. Works without an OpenAI key using the template mode.
+        - Use the **Rank** input to navigate between claims (Rank 1 = highest risk claim).
+        """)
+
 
     all_scores = val_prob
     sorted_idx = np.argsort(val_prob)[::-1]
@@ -799,6 +840,19 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
     st.title("⚡ Live Claim Scoring")
     st.caption("Enter a new claim's details to get an instant fraud risk score, "
                "SHAP explanation, and triage brief.")
+
+    with st.expander("ℹ️", expanded=False):
+        st.markdown("""
+        This page lets you score a **brand new claim** that was never part of the training or test data.
+
+        - Fill in the claim details using the form below and click **Score This Claim →**.
+        - The model instantly returns a **fraud risk score**, **triage bucket**, and **SHAP explanation**.
+        - The **gauge chart** shows the score as a percentage compared to the 6% base fraud rate.
+        - **Reason codes** explain in plain English which factors drove the score up or down.
+        - A **triage brief** is automatically generated with recommended investigation steps.
+        - Try different combinations — for example, set Base Policy to "Liability", Police Report to "No", and Witness to "No" to see a high-risk scenario.
+        """)
+
 
     from feature_engineering import (
         DAYS_POLICY_MAP, PAST_CLAIMS_MAP, AGE_VEHICLE_MAP,
@@ -1013,6 +1067,450 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
 
 
 # ══════════════════════════════════════════════════════════════
+# PAGE 5 — FAIRNESS ANALYSIS
+# ══════════════════════════════════════════════════════════════
+
+def page_fairness(df_raw, test_prob, y_test):
+    st.title("⚖️ Fairness Analysis")
+    st.caption("Checks whether the model treats different demographic groups equitably.")
+
+    with st.expander("ℹ️", expanded=False):
+        st.markdown("""
+        Insurance companies are legally required not to discriminate against customers based on protected attributes like age, sex, or marital status.
+        This page checks whether the fraud model flags certain groups at a disproportionately high rate.
+
+        - **Flag Rate** — the percentage of claims in that group that were sent to SIU or Manual Review.
+        - **Fraud Rate** — the actual percentage of claims in that group that were genuinely fraudulent.
+        - **False Positive Rate** — the percentage of legitimate claims in that group that were incorrectly flagged.
+        - **Precision** — of the flagged claims in that group, how many were actually fraud.
+        - **Disparate Impact Ratio** — compares each group's flag rate to the most-flagged group. A ratio below **0.80 (the 80% rule)** is a potential legal concern under US insurance regulation.
+        - Groups with fewer than 30 claims are excluded — small samples produce unreliable ratios.
+        - 🟢 Green = no concern. 🔴 Red = potential bias worth investigating.
+        """)
+
+
+    from fairness_analysis import compute_fairness_report, DISPARATE_IMPACT_THRESHOLD
+
+    MIN_GROUP_SIZE = 30   # groups smaller than this are excluded from DI calculation
+
+    with st.spinner("Computing fairness metrics…"):
+        raw_test = df_raw.iloc[y_test.index].reset_index(drop=True)
+        reports, analysis = compute_fairness_report(raw_test, test_prob, np.array(y_test))
+
+    # ── Overall flag rates ────────────────────────────────────
+    st.markdown("### What is Disparate Impact?")
+    st.info(
+        f"The **80% rule**: if one group is flagged at less than "
+        f"{DISPARATE_IMPACT_THRESHOLD*100:.0f}% the rate of the most-flagged group, "
+        f"it may indicate bias. This is the standard used in US insurance regulation."
+    )
+    st.caption(
+        f"⚠️ Groups with fewer than {MIN_GROUP_SIZE} claims are excluded from the "
+        f"disparate impact calculation — small samples produce unreliable ratios."
+    )
+
+    for attr, df in reports.items():
+        st.markdown(f"---")
+        st.markdown(f"### {attr}")
+
+        # Split into included and excluded groups
+        included = df[df["n"] >= MIN_GROUP_SIZE].copy()
+        excluded = df[df["n"] < MIN_GROUP_SIZE].copy()
+
+        if excluded.shape[0] > 0:
+            excl_names = ", ".join(excluded["group"].tolist())
+            st.caption(
+                f"Excluded from disparate impact (n < {MIN_GROUP_SIZE}): **{excl_names}**"
+            )
+
+        # Recompute disparate impact only on included groups
+        if not included.empty and included["flag_rate"].max() > 0:
+            min_flag = included["flag_rate"].min()
+            included["disparate_impact"] = included["flag_rate"].apply(
+                lambda x: round(min_flag / x, 4) if x > 0 else 1.0
+            )
+            included["di_flag"] = included["disparate_impact"].apply(
+                lambda x: "⚠️ Concern" if x < DISPARATE_IMPACT_THRESHOLD else "✅ OK"
+            )
+
+        # Color-code the DI flag column
+        def highlight_di(row):
+            if "Concern" in str(row.get("di_flag", "")):
+                return ["background-color: #fef2f2"] * len(row)
+            return ["background-color: #f0fdf4"] * len(row)
+
+        display_cols = ["group", "n", "fraud_rate", "flag_rate",
+                        "false_pos_rate", "precision",
+                        "disparate_impact", "di_flag"]
+        display_cols = [c for c in display_cols if c in included.columns]
+
+        if not included.empty:
+            st.dataframe(
+                included[display_cols].style
+                    .apply(highlight_di, axis=1)
+                    .format({
+                        "fraud_rate":       "{:.3f}",
+                        "flag_rate":        "{:.3f}",
+                        "false_pos_rate":   "{:.3f}",
+                        "precision":        "{:.3f}",
+                        "disparate_impact": "{:.3f}",
+                    }),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.warning("No groups meet the minimum sample size threshold.")
+
+        # Bar chart: flag rate per group (included only)
+        if not included.empty:
+            col_l, col_r = st.columns(2)
+            with col_l:
+                fig = px.bar(
+                    included, x="group", y="flag_rate",
+                    color="flag_rate",
+                    color_continuous_scale=["#27ae60", "#f39c12", "#e74c3c"],
+                    title=f"Flag Rate by {attr}",
+                    labels={"flag_rate": "Flag Rate", "group": attr},
+                )
+                fig.update_layout(height=300, margin=dict(l=10, r=10, t=40, b=10),
+                                  showlegend=False,
+                                  plot_bgcolor="#ffffff",
+                                  paper_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col_r:
+                if "disparate_impact" in included.columns:
+                    colors = ["#e74c3c" if di < DISPARATE_IMPACT_THRESHOLD else "#27ae60"
+                              for di in included["disparate_impact"]]
+                    fig2 = go.Figure(go.Bar(
+                        x=included["group"], y=included["disparate_impact"],
+                        marker_color=colors,
+                        text=[f"{v:.3f}" for v in included["disparate_impact"]],
+                        textposition="outside",
+                    ))
+                    fig2.add_hline(y=DISPARATE_IMPACT_THRESHOLD, line_dash="dash",
+                                   line_color="black",
+                                   annotation_text="80% rule threshold")
+                    fig2.update_layout(
+                        title=f"Disparate Impact Ratio — {attr}",
+                        yaxis=dict(range=[0, 1.3]),
+                        height=300, margin=dict(l=10, r=10, t=40, b=10),
+                        plot_bgcolor="#ffffff",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                    )
+                    st.plotly_chart(fig2, use_container_width=True)
+
+    # ── Summary ───────────────────────────────────────────────
+    st.markdown("---")
+    any_concern = any(
+        "Concern" in str(row.get("di_flag", ""))
+        for df in reports.values()
+        for _, row in df[df["n"] >= MIN_GROUP_SIZE].iterrows()
+        if "di_flag" in df.columns
+    )
+    if any_concern:
+        st.warning(
+            "⚠️ Some groups show potential disparate impact below the 80% rule. "
+            "Consider reviewing model features for proxy discrimination."
+        )
+        st.caption(
+            "This means at least one group is being flagged at less than 80% the rate of another group. "
+            "This does not necessarily mean the model is biased — it may reflect genuine fraud patterns in the data. "
+            "However, it is worth checking whether features like VehicleCategory or AgentType are acting as "
+            "indirect proxies for the flagged demographic attribute."
+        )
+    else:
+        st.success("✅ No disparate impact concerns detected across all demographic groups.")
+
+
+# ══════════════════════════════════════════════════════════════
+# PAGE 6 — MONITORING
+# ══════════════════════════════════════════════════════════════
+
+def page_monitoring(df_raw, test_prob, y_test):
+    st.title("📡 Model Monitoring")
+    st.caption(
+        "Simulates production monitoring by splitting the test set into "
+        "time-ordered batches and checking for drift."
+    )
+
+    with st.expander("ℹ️", expanded=False):
+        st.markdown("""
+        In production, new insurance claims arrive every week. Over time, fraud patterns change — new schemes emerge, claim types shift, and the model can become less accurate without anyone noticing.
+        This page simulates that by splitting the test set into **6 time-ordered batches** (like 6 weeks of claims) and checking each one.
+
+        - **Fraud Rate per Batch** — if this spikes or drops significantly, it may mean fraud patterns are changing.
+        - **Avg Risk Score per Batch** — if the model's scores drift up or down over time, it may need retraining.
+        - **Drift Detection** — uses statistical tests (KS test) to check if the input feature distributions have shifted between batches. A drifted feature means the data the model sees today looks different from what it was trained on.
+        - **Drift Share** — the percentage of features that have drifted. Even 1 drifted feature out of 7 (14.3%) is worth investigating.
+        - **SIU Fraud Rate** — the fraud rate within the top 5% flagged claims per batch. If this drops, the model is losing its ability to concentrate fraud at the top.
+        - ✅ Stable = no drift detected. ⚠️ Drift = at least one feature has shifted significantly.
+        """)
+
+
+    from monitoring import run_monitoring, get_drift_summary, N_BATCHES
+
+    with st.spinner("Running monitoring pipeline…"):
+        raw_test = df_raw.iloc[y_test.index].reset_index(drop=True)
+        results  = run_monitoring(raw_test, test_prob, np.array(y_test))
+
+    stats_df     = results["batch_stats"]
+    drift_results = results["drift_results"]
+    drift_summary = get_drift_summary(drift_results)
+
+    # ── KPI row ───────────────────────────────────────────────
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Batches Analysed", len(stats_df))
+    c2.metric("Avg Fraud Rate",   f"{stats_df['fraud_rate'].mean():.3f}")
+    c3.metric("Avg Risk Score",   f"{stats_df['avg_risk_score'].mean():.4f}")
+    drift_status = "⚠️ Drift Detected" if drift_summary["any_drift"] else "✅ Stable"
+    c4.metric("Drift Status", drift_status)
+
+    st.markdown("---")
+
+    # ── Trend charts ──────────────────────────────────────────
+    col_l, col_r = st.columns(2)
+
+    with col_l:
+        st.markdown("**Fraud Rate per Batch**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=stats_df["label"], y=stats_df["fraud_rate"],
+            mode="lines+markers", line=dict(color="#e74c3c", width=2),
+            marker=dict(size=8),
+        ))
+        fig.add_hline(y=stats_df["fraud_rate"].mean(), line_dash="dot",
+                      line_color="#9ca3af",
+                      annotation_text=f"Mean {stats_df['fraud_rate'].mean():.3f}")
+        fig.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=40),
+                          plot_bgcolor="#ffffff", paper_bgcolor="rgba(0,0,0,0)",
+                          xaxis=dict(gridcolor="#f3f4f6"),
+                          yaxis=dict(gridcolor="#f3f4f6"))
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_r:
+        st.markdown("**Average Risk Score per Batch**")
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(
+            x=stats_df["label"], y=stats_df["avg_risk_score"],
+            mode="lines+markers", line=dict(color="#2563eb", width=2),
+            marker=dict(size=8), name="Avg score",
+        ))
+        fig2.add_trace(go.Scatter(
+            x=pd.concat([stats_df["label"], stats_df["label"][::-1]]),
+            y=pd.concat([
+                stats_df["avg_risk_score"] + stats_df["std_risk_score"],
+                (stats_df["avg_risk_score"] - stats_df["std_risk_score"])[::-1],
+            ]),
+            fill="toself", fillcolor="rgba(37,99,235,0.1)",
+            line=dict(color="rgba(255,255,255,0)"),
+            name="± std",
+        ))
+        fig2.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=40),
+                           plot_bgcolor="#ffffff", paper_bgcolor="rgba(0,0,0,0)",
+                           xaxis=dict(gridcolor="#f3f4f6"),
+                           yaxis=dict(gridcolor="#f3f4f6"),
+                           showlegend=False)
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # ── Drift table ───────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("**Drift Detection Results**")
+    if drift_results:
+        drift_df = pd.DataFrame([
+            {
+                "Batch":            d["batch_label"],
+                "Dataset Drift":    "⚠️ Yes" if d["dataset_drift"] else "✅ No",
+                "Drifted Features": d["n_drifted_features"],
+                "Total Features":   d["n_features"],
+                "Drift Share":      f"{d['drift_share']:.1%}",
+            }
+            for d in drift_results
+        ])
+        st.dataframe(drift_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No drift results available.")
+
+    # ── Batch stats table ─────────────────────────────────────
+    st.markdown("---")
+    st.markdown("**Batch Statistics**")
+    display_stats = stats_df[[
+        "label", "n", "fraud_rate", "avg_risk_score",
+        "siu_count", "manual_count", "siu_fraud_rate"
+    ]].copy()
+    display_stats.columns = [
+        "Batch", "Claims", "Fraud Rate", "Avg Risk Score",
+        "SIU Count", "Manual Count", "SIU Fraud Rate"
+    ]
+    st.dataframe(
+        display_stats.style.format({
+            "Fraud Rate":     "{:.3f}",
+            "Avg Risk Score": "{:.4f}",
+            "SIU Fraud Rate": "{:.3f}",
+        }),
+        use_container_width=True, hide_index=True,
+    )
+
+
+# ══════════════════════════════════════════════════════════════
+# PAGE 7 — TEMPORAL ANALYSIS
+# ══════════════════════════════════════════════════════════════
+
+def page_temporal(df_raw, test_prob, y_test):
+    st.title("📅 Temporal Analysis")
+    st.caption(
+        "Month-by-month model performance — shows how well the model "
+        "detects fraud across different time periods."
+    )
+
+    with st.expander("ℹ️", expanded=False):
+        st.markdown("""
+        Fraud is seasonal. Certain months see more staged accidents, more opportunistic claims, or different fraud patterns.
+        This page evaluates the model **separately for each month** to see where it performs well and where it struggles.
+
+        - **PR-AUC by Month** — the model's ability to rank fraud above non-fraud for that month's claims. Higher is better. Large variation across months suggests seasonal fraud patterns.
+        - **Fraud Rate by Month** — the actual percentage of claims that were fraudulent each month. Spikes indicate high-fraud periods.
+        - **Precision@5% by Month** — of the top 5% highest-risk claims that month, how many were actually fraud. A drop to 0 (like November) means the model struggled to concentrate fraud at the top that month.
+        - **Avg Risk Score by Month** — the model's average confidence level. A drop in average score may indicate the model is less certain in certain months.
+        - **Best/Worst Month** — shown in the KPI cards at the top. Useful for understanding when the model is most and least reliable.
+        - 🔵 Blue highlight in the table = best performing month. 🔴 Red highlight = worst performing month.
+        """)
+
+
+    from temporal_analysis import run_temporal_analysis, get_temporal_summary
+
+    with st.spinner("Running temporal analysis…"):
+        raw_test   = df_raw.iloc[y_test.index].reset_index(drop=True)
+        df_metrics = run_temporal_analysis(raw_test, test_prob, np.array(y_test))
+
+    if df_metrics.empty:
+        st.warning("Not enough data per month for temporal analysis.")
+        return
+
+    summary = get_temporal_summary(df_metrics)
+
+    # ── KPI row ───────────────────────────────────────────────
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Months Analysed",  summary["n_months"])
+    c2.metric("Mean PR-AUC",      f"{summary['mean_pr_auc']:.4f}",
+              delta=f"± {summary['std_pr_auc']:.4f}")
+    c3.metric("Best Month",       f"{summary['best_month']} ({summary['best_pr_auc']:.4f})")
+    c4.metric("Worst Month",      f"{summary['worst_month']} ({summary['worst_pr_auc']:.4f})")
+
+    st.markdown("---")
+
+    # ── Charts ────────────────────────────────────────────────
+    col_l, col_r = st.columns(2)
+
+    with col_l:
+        st.markdown("**PR-AUC by Month**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=df_metrics["month"], y=df_metrics["pr_auc"],
+            mode="lines+markers",
+            line=dict(color="#2563eb", width=2.5),
+            marker=dict(size=9),
+            name="PR-AUC",
+        ))
+        fig.add_hline(y=summary["mean_pr_auc"], line_dash="dot",
+                      line_color="#9ca3af",
+                      annotation_text=f"Mean {summary['mean_pr_auc']:.4f}")
+        fig.update_layout(
+            height=300, margin=dict(l=10, r=10, t=10, b=40),
+            plot_bgcolor="#ffffff", paper_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(gridcolor="#f3f4f6"),
+            yaxis=dict(gridcolor="#f3f4f6", title="PR-AUC"),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_r:
+        st.markdown("**Fraud Rate by Month**")
+        fig2 = go.Figure(go.Bar(
+            x=df_metrics["month"],
+            y=df_metrics["fraud_rate"],
+            marker_color="#e74c3c",
+            opacity=0.8,
+        ))
+        fig2.add_hline(y=summary["mean_fraud_rate"], line_dash="dot",
+                       line_color="#9ca3af",
+                       annotation_text=f"Mean {summary['mean_fraud_rate']:.3f}")
+        fig2.update_layout(
+            height=300, margin=dict(l=10, r=10, t=10, b=40),
+            plot_bgcolor="#ffffff", paper_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(gridcolor="#f3f4f6"),
+            yaxis=dict(gridcolor="#f3f4f6", title="Fraud Rate"),
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+    col_l2, col_r2 = st.columns(2)
+
+    with col_l2:
+        st.markdown("**Precision@5% by Month**")
+        fig3 = go.Figure(go.Scatter(
+            x=df_metrics["month"], y=df_metrics["precision_5pct"],
+            mode="lines+markers",
+            line=dict(color="#27ae60", width=2.5),
+            marker=dict(size=9, symbol="square"),
+        ))
+        fig3.update_layout(
+            height=280, margin=dict(l=10, r=10, t=10, b=40),
+            plot_bgcolor="#ffffff", paper_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(gridcolor="#f3f4f6"),
+            yaxis=dict(gridcolor="#f3f4f6", title="Precision@5%"),
+        )
+        st.plotly_chart(fig3, use_container_width=True)
+
+    with col_r2:
+        st.markdown("**Average Risk Score by Month**")
+        fig4 = go.Figure(go.Scatter(
+            x=df_metrics["month"], y=df_metrics["avg_risk_score"],
+            mode="lines+markers",
+            line=dict(color="#f39c12", width=2.5),
+            marker=dict(size=9, symbol="diamond"),
+        ))
+        fig4.update_layout(
+            height=280, margin=dict(l=10, r=10, t=10, b=40),
+            plot_bgcolor="#ffffff", paper_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(gridcolor="#f3f4f6"),
+            yaxis=dict(gridcolor="#f3f4f6", title="Avg Risk Score"),
+        )
+        st.plotly_chart(fig4, use_container_width=True)
+
+    # ── Monthly metrics table ─────────────────────────────────
+    st.markdown("---")
+    st.markdown("**Monthly Metrics Table**")
+    display_metrics = df_metrics.rename(columns={
+        "month":          "Month",
+        "month_num":      "Month #",
+        "n":              "Claims",
+        "fraud_rate":     "Fraud Rate",
+        "pr_auc":         "PR-AUC",
+        "roc_auc":        "ROC-AUC",
+        "precision_5pct": "Precision@5%",
+        "avg_risk_score": "Avg Risk Score",
+        "siu_fraud_rate": "SIU Fraud Rate",
+    })
+    st.dataframe(
+        display_metrics.style.format({
+            "Fraud Rate":     "{:.4f}",
+            "PR-AUC":         "{:.4f}",
+            "ROC-AUC":        "{:.4f}",
+            "Precision@5%":   "{:.4f}",
+            "Avg Risk Score": "{:.4f}",
+            "SIU Fraud Rate": "{:.4f}",
+        }).highlight_max(
+            subset=["PR-AUC", "Precision@5%"],
+            color="#dbeafe",
+        ).highlight_min(
+            subset=["PR-AUC", "Precision@5%"],
+            color="#fee2e2",
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
+# ══════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════
 
@@ -1058,6 +1556,15 @@ def main():
             data["cat_cols"], data["num_cols"],
             data["feat_names"], rag, display_prob,
         )
+
+    elif page == "⚖️ Fairness Analysis":
+        page_fairness(data["df_raw"], display_prob, display_y)
+
+    elif page == "📡 Monitoring":
+        page_monitoring(data["df_raw"], display_prob, display_y)
+
+    elif page == "📅 Temporal Analysis":
+        page_temporal(data["df_raw"], display_prob, display_y)
 
 
 if __name__ == "__main__":
