@@ -1794,7 +1794,7 @@ labels["Fraud"] = (
             st.markdown("**PR Curve — Medicare Model**")
             pr_path = os.path.join(medicare_dir, "medicare_pr_curve.png")
             if os.path.exists(pr_path):
-                st.image(pr_path, width=480)
+                st.image(pr_path, width=620)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1802,7 +1802,7 @@ labels["Fraud"] = (
         st.markdown("**Key Finding: Domain-Specific Fraud Signals (SHAP)**")
         shap_comp_path = os.path.join(medicare_dir, "shap_comparison.png")
         if os.path.exists(shap_comp_path):
-            st.image(shap_comp_path, width=750)
+            st.image(shap_comp_path, width=950)
         st.caption(
             "Auto insurance fraud is driven by **claim characteristics** (fault, police reports, vehicle type). "
             "Medicare fraud is driven by **billing volume** (total reimbursed, inpatient claim count). "
@@ -1816,7 +1816,7 @@ labels["Fraud"] = (
         st.markdown("**PR-AUC Comparison: Auto vs. Medicare**")
         perf_path = os.path.join(medicare_dir, "model_performance_comparison.png")
         if os.path.exists(perf_path):
-            st.image(perf_path, width=550)
+            st.image(perf_path, width=700)
 
     st.divider()
 
