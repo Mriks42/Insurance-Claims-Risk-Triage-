@@ -15,6 +15,10 @@ short_description: ML-powered automotive insurance fraud triage dashboard
 > **FSE 570 Capstone Project** — Arizona State University
 > **Team Connecticut:** Mriganko Chowdhury, Aryan Gonsalves, Ashish Raj Singh, Deborah Sheryl Veluvalli, Kshama Girish
 
+🚀 **Live Demo:** [https://huggingface.co/spaces/Mriks/fraud-triage](https://huggingface.co/spaces/Mriks/fraud-triage)
+
+> The app is hosted on Hugging Face Spaces (free tier). If it's been inactive it may take ~30 seconds to wake up on first visit.
+
 An end-to-end fraud triage system for automotive insurance claims that:
 1. **Predicts** a fraud risk score for each claim (XGBoost, CatBoost, OOF Stacking Ensemble)
 2. **Explains** the key risk drivers using SHAP values and human-readable reason codes
