@@ -60,7 +60,8 @@ def step_validate(cfg):
 
     print(f"  Rows: {report['total_rows']:,} | Fraud rate: {report['fraud_rate']:.4f}")
     for c in report["checks"]:
-        print(f"  {c['status']}  {c['check']}")
+        status = "[PASS]" if c["passed"] else "[FAIL]"
+        print(f"  {status}  {c['check']}")
 
     if not report["all_passed"]:
         print("\n[WARNING] Some validation checks failed. Proceeding anyway.")

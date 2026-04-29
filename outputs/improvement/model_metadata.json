@@ -20,7 +20,7 @@
     "net_benefit": 868400,
     "roi_x": 15.097402597402597
   },
-  "trained_at": "2026-04-27T22:06:57.002802",
+  "trained_at": "2026-04-28T22:13:33.532217",
   "models_compared": [
     "XGBoost (Optuna)",
     "OOF Stack (XGB + CatBoost)",
