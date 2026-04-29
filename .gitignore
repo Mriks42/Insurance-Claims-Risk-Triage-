@@ -51,7 +51,6 @@ coverage.xml
 htmlcov/
 
 # Large model artifacts
-outputs/improvement/*.joblib
 outputs/models/*.joblib
 
 # Chroma DB (rebuilt on first run)
