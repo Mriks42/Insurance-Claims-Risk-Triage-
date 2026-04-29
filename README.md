@@ -39,7 +39,7 @@ An end-to-end fraud triage system for automotive insurance claims that:
 
 | MLflow Experiment Tracking |  |
 |:-:|:-:|
-| ![MLflow — model_improvement run](images/8.png) |  |
+| ![MLflow — model_improvement run](images/10.png) |  |
 
 | Live on Hugging Face Spaces |  |
 |:-:|:-:|
@@ -47,7 +47,7 @@ An end-to-end fraud triage system for automotive insurance claims that:
 
 | Dataset Comparison |  |
 |:-:|:-:|
-| ![Dataset Comparison — Automotive vs. Medicare](images/10.png) |  |
+| ![Dataset Comparison — Automotive vs. Medicare](images/8.png) |  |
 
 ---
 
@@ -379,7 +379,7 @@ The pipeline uses nested MLflow runs to keep things organized:
 - **`full_pipeline`** (parent) — logs dataset stats and overall pipeline metrics
 - **`model_improvement`** (child) — logs all model-specific metrics from Optuna tuning
 
-![MLflow model_improvement run](images/8.png)
+![MLflow model_improvement run](images/10.png)
 
 ### Why experiment tracking matters
 Without MLflow, every training run's results exist only in the terminal — close it and they're gone. With MLflow you can:
