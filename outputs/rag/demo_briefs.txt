@@ -1,123 +1,33 @@
 ============================================================
 CLAIM 1: SIU (Risk: 0.5703)
-Method: template
+Method: llm
 ============================================================
 
-## Triage Brief
-**Risk Score:** 0.5703 (HIGH)
-**Triage Bucket:** SIU
+### Triage Brief
 
-### Risk Assessment
-This claim has been flagged with 4 risk indicator(s):
-  - [MILD] High risk: AddressChange_Claim = '2 to 3 years' (SHAP: +0.1221)
-  - [MILD] High risk: Deductible (SHAP: +0.1181)
-  - [MILD] High risk: BasePolicy = 'Liability' (SHAP: +0.0670)
-  - [MILD] High risk: Age (SHAP: +0.0146)
+This claim presents several key risk factors that warrant further investigation. The policyholder is 23 years old and has a history of one previous claim, which raises concerns about potential moral hazard, especially given the high-value sport vehicle involved (priced over $69,000) and the liability-only coverage. Notably, the policyholder has changed addresses twice within the last 2 to 3 years, which could indicate instability or intent to defraud, as highlighted in our guidelines [Source 4]. Additionally, the absence of a police report and witnesses further complicates the claim's credibility, aligning with indicators of potential staged accidents [Source 5].
 
-The following factor(s) reduce the overall risk assessment:
-  - [MILD] Low risk: Fault = 'Policy Holder' (SHAP: -0.0468)
-
-### Claim Details
-  - **BasePolicy:** Liability
-  - **Fault:** Policy Holder
-  - **VehicleCategory:** Sport
-  - **PoliceReportFiled:** No
-  - **WitnessPresent:** No
-  - **AgentType:** External
-  - **AddressChange_Claim:** 2 to 3 years
-  - **Deductible:** 400
-  - **Age:** 23
-
-### Applicable Guidelines
-  - [Source 1: fraud_red_flags.md] ### 1.4 Financial Indicators High-deductible policies paired with frequent claims suggest potential moral hazard. Claims on vehicles valued above $60,000 with liability-only coverage are unusual and s...
-  - [Source 2: policy_coverage_standards.md] # Automotive Insurance Policy Coverage and Fraud Prevention Standards
-  - [Source 3: fraud_red_flags.md] ## Section 1: Common Fraud Indicators  ### 1.1 Policyholder Behavior Indicators Claims filed within the first 30 days of a new policy or immediately following a policy change are considered high-risk....
-
-### Recommended Action
-This claim is recommended for **SIU Escalation**. The Special Investigations Unit should:
-  1. Review the complete claim file and all supporting documentation
-  2. Conduct recorded interviews with the policyholder
-  3. Perform vehicle inspection or independent appraisal
-  4. Cross-reference against NICB fraud database
-  5. Complete investigation within 30 business days
+Given these factors, it is recommended that this claim be referred to the Special Investigations Unit (SIU) for a thorough review. Investigation steps should include verifying the policyholder's address history, assessing the circumstances surrounding the claim, and checking for any connections to known fraud patterns or transient fraud rings. Furthermore, evaluating the deductible-to-vehicle-value ratio is crucial, as it may indicate intentional underinsurance, particularly since the deductible is set at $400 for a high-value vehicle [Source 1]. This comprehensive approach will help determine the legitimacy of the claim and mitigate potential fraud risks.
 
 ============================================================
 CLAIM 2: Approve (Risk: 0.0500)
-Method: template
+Method: llm
 ============================================================
 
-## Triage Brief
-**Risk Score:** 0.0500 (LOW)
-**Triage Bucket:** Approve
+### Triage Brief
 
-### Risk Assessment
-No significant risk indicators were identified for this claim.
+The claim under review is categorized as low risk, with a risk score of 0.0500, placing it in the "Approve" triage bucket. Key factors contributing to this assessment include the collision coverage policy, which typically has a lower fraud exposure compared to liability-only policies, and the fact that the fault lies with a third party. Additionally, the claimant is 42 years old and has no prior claims history, further reducing the likelihood of fraudulent activity. The presence of a police report and a witness also supports the validity of the claim, aligning with the standards outlined in the policy coverage guidelines [Source 1].
 
-The following factor(s) reduce the overall risk assessment:
-  - [MILD] Low risk: BasePolicy = 'Collision' (SHAP: -0.0320)
-  - [MILD] Low risk: Fault = 'Third Party' (SHAP: -0.0280)
-  - [MILD] Low risk: Age (SHAP: -0.0150)
-
-### Claim Details
-  - **BasePolicy:** Collision
-  - **Fault:** Third Party
-  - **VehicleCategory:** Sedan
-  - **PoliceReportFiled:** Yes
-  - **WitnessPresent:** Yes
-  - **AgentType:** Internal
-  - **AddressChange_Claim:** no change
-  - **Deductible:** 300
-  - **Age:** 42
-
-### Applicable Guidelines
-  - [Source 1: policy_coverage_standards.md] ### 1.2 Collision Coverage Collision coverage pays for damage to the policyholder's own vehicle regardless of fault. Fraud exposure includes pre-existing damage claimed as new accident damage, intenti...
-  - [Source 2: fraud_red_flags.md] ### 1.4 Financial Indicators High-deductible policies paired with frequent claims suggest potential moral hazard. Claims on vehicles valued above $60,000 with liability-only coverage are unusual and s...
-  - [Source 3: policy_coverage_standards.md] # Automotive Insurance Policy Coverage and Fraud Prevention Standards
-
-### Recommended Action
-This claim is recommended for **Standard Approval**. Process through automated workflow.
-Note: This claim will be part of the quarterly random sampling audit.
+Despite the low risk assessment, it is prudent to conduct a standard review of the repair estimates to ensure they are consistent with the damages reported and that no pre-existing damage is being claimed as new. This aligns with the fraud prevention standards that highlight the importance of verifying repair costs and the integrity of the claim [Source 1]. Given the vehicle's price range and the deductible amount, there are no immediate red flags regarding the deductible-to-vehicle-value ratio, which is above the 1% threshold that could indicate intentional underinsurance [Source 2]. Therefore, while the claim appears legitimate, a thorough review of repair estimates and any supporting documentation is recommended to finalize the approval process.
 
 ============================================================
 CLAIM 3: Manual Review (Risk: 0.3500)
-Method: template
+Method: llm
 ============================================================
 
-## Triage Brief
-**Risk Score:** 0.3500 (ELEVATED)
-**Triage Bucket:** Manual Review
+### Triage Brief for Claim Review
 
-### Risk Assessment
-This claim has been flagged with 4 risk indicator(s):
-  - [MILD] High risk: Deductible (SHAP: +0.0890)
-  - [MILD] High risk: PoliceReportFiled = 'No' (SHAP: +0.0450)
-  - [MILD] High risk: AddressChange_Claim = 'under 6 months' (SHAP: +0.0380)
-  - [MILD] High risk: PastNumberOfClaims (SHAP: +0.0250)
+This claim presents several key risk factors that warrant a manual review. The policyholder has a high deductible of $700, which, when combined with their vehicle's value and a history of 2 to 4 past claims, raises concerns about potential moral hazard, as indicated in the policy guidelines [Source 1]. Additionally, the absence of a police report filed for the incident, along with a recent address change within the last six months, aligns with red flags for potential fraud, particularly the risk of staged accidents [Source 3]. While there is a witness present, which typically reduces risk, the overall profile remains concerning.
 
-The following factor(s) reduce the overall risk assessment:
-  - [MILD] Low risk: WitnessPresent = 'Yes' (SHAP: -0.0180)
-
-### Claim Details
-  - **BasePolicy:** All Perils
-  - **Fault:** Policy Holder
-  - **VehicleCategory:** Utility
-  - **PoliceReportFiled:** No
-  - **WitnessPresent:** Yes
-  - **AgentType:** External
-  - **AddressChange_Claim:** under 6 months
-  - **Deductible:** 700
-  - **Age:** 31
-
-### Applicable Guidelines
-  - [Source 1: fraud_red_flags.md] ### 1.4 Financial Indicators High-deductible policies paired with frequent claims suggest potential moral hazard. Claims on vehicles valued above $60,000 with liability-only coverage are unusual and s...
-  - [Source 2: policy_coverage_standards.md] # Automotive Insurance Policy Coverage and Fraud Prevention Standards
-  - [Source 3: fraud_red_flags.md] # Automotive Insurance Fraud Red Flags and Indicators
-
-### Recommended Action
-This claim requires **Manual Review**. The reviewer should:
-  1. Verify police report details against the claim
-  2. Confirm policyholder identity and coverage status
-  3. Validate repair estimates against industry benchmarks
-  4. Review and assess machine-generated reason codes
-  5. Complete review within 10 business days
+Given these factors, it is recommended that the claims adjuster conduct a thorough investigation. This should include verifying the details of the incident with the witness, assessing the policyholder's claims history and address changes, and considering a referral to the Special Investigations Unit (SIU) due to the combination of a recent address change, lack of a police report, and the policyholder being at fault [Source 4]. These steps will help ensure a comprehensive evaluation of the claim and mitigate potential fraud risks.
 

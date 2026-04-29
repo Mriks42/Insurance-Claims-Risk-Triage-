@@ -83,12 +83,18 @@ def step_base_modeling(cfg):
 
         # Log base model metrics
         mlflow.log_metrics({
-            "base_xgb_val_pr_auc":  data.get("best_val_prob", [0]),
-            "train_size":           len(data["y_train"]),
-            "val_size":             len(data["y_val"]),
-            "test_size":            len(data["y_test"]),
+            "train_size": len(data["y_train"]),
+            "val_size":   len(data["y_val"]),
+            "test_size":  len(data["y_test"]),
         })
         mlflow.log_param("random_state", cfg["data"]["random_state"])
+
+        # Log best base model PR-AUC from saved comparison CSV
+        comparison_path = os.path.join("outputs", "metrics", "model_comparison.csv")
+        if os.path.exists(comparison_path):
+            comp_df = pd.read_csv(comparison_path)
+            best_base_pr_auc = float(comp_df["PR_AUC"].max())
+            mlflow.log_metric("base_best_val_pr_auc", best_base_pr_auc)
 
     return data
 

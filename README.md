@@ -149,7 +149,7 @@ FSE 570 Capstone Project/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/insurance-claims-risk-triage.git
+git clone https://github.com/Mriks42/insurance-claims-risk-triage.git
 cd insurance-claims-risk-triage
 ```
 
@@ -317,7 +317,7 @@ Each page has a collapsible **ℹ️** button at the top with a plain-English ex
 
 | Page | Description |
 |------|-------------|
-| **📊 Summary Dashboard** | KPI cards (SIU/Manual/Approve counts, PR-AUC, ROI), smoothed PR curve, risk score distribution, SHAP global importance, triage bucket fraud rates, cost-benefit ROI breakdown |
+| **📊 Summary Dashboard** | KPI cards (SIU/Manual/Approve counts, PR-AUC, ROI), smoothed PR curve (test set), model comparison table, risk score distribution, SHAP global importance, triage bucket fraud rates, cost-benefit ROI breakdown, confusion matrix at operational threshold, calibration curve (reliability diagram) |
 | **📋 Review Queue** | All 1,542 test claims ranked by risk score, color-coded by bucket, filterable by bucket and score range, jump-to-detail button |
 | **🔎 Claim Detail** | Per-claim risk score banner, SHAP waterfall chart, styled reason code pills, on-demand RAG triage brief with cited guidelines |
 | **⚡ Live Scoring** | Score a brand-new claim in real time — fill a form, get instant risk score, gauge chart, SHAP explanation, and triage brief |
@@ -441,11 +441,13 @@ Tests catch these instantly. The GitHub Action blocks deployment if any test fai
 
 ### Improved Models (Optuna + 41 engineered features)
 
-| Model | Val PR-AUC | Val ROC-AUC | Precision@5% | vs. Base |
-|-------|:----------:|:-----------:|:------------:|:--------:|
-| **XGBoost (Optuna)** | **0.3223** | 0.8595 | **0.3247** | **+28.0%** |
-| OOF Stack (XGB + CatBoost) | 0.3144 | **0.8647** | 0.3117 | +24.9% |
-| CatBoost (Optuna) | 0.2879 | 0.8630 | 0.2987 | +14.3% |
+| Model | Val PR-AUC | Val ROC-AUC | Precision@5% | Test PR-AUC | vs. Base |
+|-------|:----------:|:-----------:|:------------:|:-----------:|:--------:|
+| **XGBoost (Optuna)** | **0.3223** | 0.8595 | **0.3247** | **0.2443** | **+28.0%** |
+| OOF Stack (XGB + CatBoost) | 0.3144 | **0.8647** | 0.3117 | — | +24.9% |
+| CatBoost (Optuna) | 0.2879 | 0.8630 | 0.2987 | — | +14.3% |
+
+> Test PR-AUC is reported only for the selected best model (XGBoost Optuna) — the test set is touched once to avoid selection bias.
 
 ### Triage Bucket Performance
 
@@ -459,11 +461,11 @@ Tests catch these instantly. The GitHub Action blocks deployment if any test fai
 
 | Metric | Value |
 |--------|-------|
-| Fraud claims caught | 62 |
-| Losses prevented | $930,000 |
+| Fraud claims caught | 54 |
+| Losses prevented | $810,000 |
 | Investigation costs | $61,600 |
-| **Net benefit** | **$868,400** |
-| **ROI** | **15.1x** |
+| **Net benefit** | **$748,400** |
+| **ROI** | **13.1x** |
 
 ---
 

@@ -18,6 +18,7 @@ optuna>=3.0
 
 # Explainability
 shap>=0.44
+lime>=0.2
 
 # RAG pipeline
 chromadb>=0.4

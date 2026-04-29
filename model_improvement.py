@@ -657,6 +657,71 @@ def main():
                 os.path.join(IMPROVEMENT_DIR, "best_model_improved.joblib"))
     print(f"\nSaved best model to: {IMPROVEMENT_DIR}/best_model_improved.joblib")
 
+    # 11b) Register model in MLflow Model Registry
+    try:
+        import mlflow
+        import mlflow.sklearn
+        from mlflow.tracking import MlflowClient
+
+        mlflow.set_tracking_uri("mlruns")
+        mlflow.set_experiment("fraud-triage")
+
+        with mlflow.start_run(run_name=f"register_{best_name.replace(' ', '_')}"):
+            # Log metrics
+            mlflow.log_metrics({
+                "val_pr_auc":         float(comparison.iloc[0]["PR_AUC"]),
+                "val_roc_auc":        float(comparison.iloc[0]["ROC_AUC"]),
+                "test_pr_auc":        float(test_summary["PR_AUC"]),
+                "test_roc_auc":       float(test_summary["ROC_AUC"]),
+                "val_precision_5pct": float(comparison.iloc[0]["Precision_at_5pct"]),
+                "val_recall_5pct":    float(comparison.iloc[0]["Recall_at_5pct"]),
+                "roi_x":              float(roi["roi_x"]),
+                "net_benefit_usd":    float(roi["net_benefit"]),
+                "fraud_caught":       float(roi["fraud_caught"]),
+            })
+            mlflow.log_params({
+                "best_model_name": best_name,
+                "feature_count":   int(data["X_train_t"].shape[1]),
+                "train_size":      int(len(data["y_train"])),
+            })
+
+            # Log and register the model
+            model_path = os.path.join(IMPROVEMENT_DIR, "best_model_improved.joblib")
+            mlflow.log_artifact(model_path, artifact_path="model")
+
+            # Register in Model Registry
+            model_uri = f"runs:/{mlflow.active_run().info.run_id}/model"
+            registered = mlflow.register_model(
+                model_uri=model_uri,
+                name="fraud-triage-xgboost",
+            )
+
+            # Add description and tags
+            client = MlflowClient()
+            client.update_registered_model(
+                name="fraud-triage-xgboost",
+                description="XGBoost Optuna fraud triage model — FSE 570 Capstone",
+            )
+            client.set_model_version_tag(
+                name="fraud-triage-xgboost",
+                version=registered.version,
+                key="val_pr_auc",
+                value=str(round(float(comparison.iloc[0]["PR_AUC"]), 4)),
+            )
+            client.set_model_version_tag(
+                name="fraud-triage-xgboost",
+                version=registered.version,
+                key="roi_x",
+                value=str(round(float(roi["roi_x"]), 1)),
+            )
+
+            print(f"\n[MLflow] Model registered: fraud-triage-xgboost v{registered.version}")
+            print(f"  Val PR-AUC: {comparison.iloc[0]['PR_AUC']:.4f}")
+            print(f"  ROI: {roi['roi_x']:.1f}x")
+
+    except Exception as e:
+        print(f"\n[MLflow] Model registration skipped: {e}")
+
     # 12) Save model metadata — single source of truth for the Streamlit app
     metadata = {
         "best_model_name":  best_name,

@@ -428,8 +428,8 @@ def page_summary(metadata, val_prob, test_prob, y_test, shap_imp, model_comparis
         st.markdown('<p class="section-label">Model Performance</p>', unsafe_allow_html=True)
         st.markdown("**Precision-Recall Curve**")
         from sklearn.metrics import precision_recall_curve, average_precision_score
-        prec, rec, thresholds = precision_recall_curve(y_arr, val_prob)
-        pr_auc = average_precision_score(y_arr, val_prob)
+        prec, rec, thresholds = precision_recall_curve(y_arr, test_prob)
+        pr_auc = average_precision_score(y_arr, test_prob)
 
         # Smooth the curve with a rolling average for cleaner display
         window = 20
@@ -569,6 +569,71 @@ def page_summary(metadata, val_prob, test_prob, y_test, shap_imp, model_comparis
     r3.metric("Investigation Costs",  f"${roi['costs_usd']:,.0f}")
     r4.metric("Net Benefit",          f"${roi['net_benefit']:,.0f}")
     r5.metric("Return on Investment", f"{roi['roi_x']:.1f}x")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Confusion matrix + calibration curve ─────────────────
+    st.markdown('<p class="section-label">Model Evaluation</p>', unsafe_allow_html=True)
+    col_cm, col_cal = st.columns(2)
+
+    with col_cm:
+        st.markdown("**Confusion Matrix @ Operational Threshold (Top 5%)**")
+        from sklearn.metrics import confusion_matrix as sk_cm
+        op_thresh  = float(np.percentile(all_scores, 95))
+        y_pred_op  = (all_scores >= op_thresh).astype(int)
+        cm         = sk_cm(y_arr, y_pred_op)
+        tn, fp, fn, tp = cm.ravel()
+
+        cm_df = pd.DataFrame(
+            [[f"TN: {tn}", f"FP: {fp}"],
+             [f"FN: {fn}", f"TP: {tp}"]],
+            index=["Actual: Legit", "Actual: Fraud"],
+            columns=["Predicted: Legit", "Predicted: Fraud"],
+        )
+        st.dataframe(
+            cm_df.style.applymap(
+                lambda v: "background-color: #dbeafe" if v.startswith("TP") or v.startswith("TN")
+                else "background-color: #fee2e2"
+            ),
+            use_container_width=True,
+        )
+        precision = tp / max(1, tp + fp)
+        recall    = tp / max(1, tp + fn)
+        st.caption(
+            f"Precision: {precision:.3f} | Recall: {recall:.3f} | "
+            f"Threshold: top 5% (score ≥ {op_thresh:.4f})"
+        )
+
+    with col_cal:
+        st.markdown("**Calibration Curve (Reliability Diagram)**")
+        from sklearn.calibration import calibration_curve
+        frac_pos, mean_pred = calibration_curve(y_arr, all_scores, n_bins=10)
+        fig_cal = go.Figure()
+        fig_cal.add_trace(go.Scatter(
+            x=mean_pred, y=frac_pos,
+            mode="lines+markers",
+            name="Model",
+            line=dict(color="#2563eb", width=2),
+            marker=dict(size=7),
+        ))
+        fig_cal.add_trace(go.Scatter(
+            x=[0, 1], y=[0, 1],
+            mode="lines",
+            name="Perfect calibration",
+            line=dict(color="#9ca3af", dash="dash"),
+        ))
+        fig_cal.update_layout(
+            xaxis_title="Mean predicted probability",
+            yaxis_title="Fraction of positives",
+            height=280,
+            margin=dict(l=10, r=10, t=10, b=40),
+            plot_bgcolor="#ffffff",
+            paper_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(range=[0, 1], gridcolor="#f3f4f6"),
+            yaxis=dict(range=[0, 1], gridcolor="#f3f4f6"),
+            legend=dict(x=0.05, y=0.95),
+        )
+        st.plotly_chart(fig_cal, use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1053,6 +1118,8 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
         f'<div class="brief-box">{result["brief"]}</div>',
         unsafe_allow_html=True,
     )
+
+
 
 
 # ══════════════════════════════════════════════════════════════
