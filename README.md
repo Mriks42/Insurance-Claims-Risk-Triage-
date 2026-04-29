@@ -49,6 +49,10 @@ An end-to-end fraud triage system for automotive insurance claims that:
 |:-:|:-:|
 | ![Temporal Analysis](images/7.png) |  |
 
+| MLflow Experiment Tracking |  |
+|:-:|:-:|
+| ![MLflow — model_improvement run](images/8.png) |  |
+
 ---
 
 ## Table of Contents
@@ -168,16 +172,21 @@ OPENAI_API_KEY=sk-your-key-here
 python train.py
 ```
 
-This runs data validation → base modeling → SHAP → Optuna tuning → RAG index, all logged to MLflow.
+This single command replaces running 4 scripts manually. It executes the full pipeline in order:
+1. **Data validation** — Pandera schema checks on `fraud_oracle.csv`
+2. **Base modeling** — LR baseline, XGBoost, LightGBM
+3. **SHAP analysis** — global importance, per-claim reason codes
+4. **Model improvement** — Optuna Bayesian tuning, CatBoost, OOF stacking
+5. **RAG pipeline** — builds persistent ChromaDB vector index
 
-Or run steps individually:
+Every step is automatically logged to MLflow. Use flags to skip steps:
 
 ```bash
-python modeling.py           # base models
-python shap_explainability.py
-python model_improvement.py  # Optuna + CatBoost + stacking
-python rag_pipeline.py       # build vector index
+python train.py --skip-base --skip-shap --skip-rag   # Optuna tuning only (fastest)
+python train.py --skip-improvement --skip-rag         # base models + SHAP only
 ```
+
+All settings (Optuna trials, split ratios, cost assumptions) live in `training_config.yaml` — edit that file to change any parameter without touching the code.
 
 ### 6. Launch the dashboard
 
@@ -202,22 +211,89 @@ pytest tests/
 
 ## Docker
 
-Run the entire app in a container — no local Python setup needed.
+The app is fully containerized using Docker. This means anyone can run it on any machine without installing Python, managing package versions, or dealing with environment conflicts — just one command and it starts.
+
+### Two Dockerfiles
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile` | Full image — includes all ML training + dashboard dependencies. Used by Hugging Face Spaces for live deployment |
+| `Dockerfile.slim` | Lightweight image — dashboard-only dependencies, smaller size. Ideal for local testing when disk space is limited |
+
+### Run with Docker Desktop
+
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and run:
 
 ```bash
-# Build and start
+# Full stack — dashboard + MLflow server
 docker-compose up
 
-# Dashboard at http://localhost:8501
-# MLflow UI at http://localhost:5000 (with --profile mlflow)
-docker-compose --profile mlflow up
+# Dashboard opens at http://localhost:8501
 ```
 
-### GitHub Codespaces (no admin rights needed)
+To also start the MLflow tracking UI:
+```bash
+docker-compose --profile mlflow up
+# Dashboard at http://localhost:8501
+# MLflow UI at http://localhost:5000
+```
 
-1. Push repo to GitHub
+### Run the slim image (lower disk usage)
+
+```bash
+# Build
+docker build -f Dockerfile.slim -t fraud-triage-slim .
+
+# Run
+docker run -p 8501:8501 fraud-triage-slim
+
+# Dashboard at http://localhost:8501
+```
+
+### Why Docker matters
+In production, your model runs on a server, not your laptop. Docker guarantees the server runs the exact same environment as your development machine — same Python version, same package versions, same configuration. Without Docker, "works on my machine" is a common and costly problem. Every major cloud provider (AWS, GCP, Azure) deploys applications as Docker containers.
+
+### No Docker Desktop? Use GitHub Codespaces
+If you don't have admin rights to install Docker Desktop:
+1. Go to your GitHub repo
 2. Click green **Code** button → **Codespaces** → **Create codespace on main**
-3. Docker is pre-installed in Codespaces — run `docker-compose up` directly
+3. Docker is pre-installed — run the same commands above directly in the browser terminal
+
+---
+
+## Deployment — Hugging Face Spaces
+
+🚀 **Live URL:** [https://huggingface.co/spaces/Mriks/fraud-triage](https://huggingface.co/spaces/Mriks/fraud-triage)
+
+The app is deployed to Hugging Face Spaces using the `Dockerfile` in this repo. Hugging Face builds and runs the container on their infrastructure — no server management needed.
+
+### How auto-deploy works
+Every push to the `main` branch on GitHub automatically triggers a deployment:
+
+```
+Push to GitHub → GitHub Action runs → Code pushed to HF Space → HF rebuilds Docker container → App live
+```
+
+This is set up via `.github/workflows/deploy.yml`. The workflow uses three GitHub secrets:
+- `HF_TOKEN` — Hugging Face API token with write access
+- `HF_USERNAME` — your Hugging Face username
+- `HF_SPACE_NAME` — name of your Space (`fraud-triage`)
+
+### Sleep behavior
+Hugging Face free tier puts Spaces to sleep after 48 hours of inactivity. When someone visits after it's been sleeping, it takes ~30 seconds to wake up. This is normal for free-tier hosting — open the link a minute before any live demo.
+
+---
+
+## CI/CD — GitHub Actions
+
+Two workflows run automatically on every push to `main`:
+
+| Workflow | File | What it does |
+|----------|------|-------------|
+| **Run Tests** | `.github/workflows/tests.yml` | Runs `pytest tests/` — fails the build if any test breaks |
+| **Deploy to HF** | `.github/workflows/deploy.yml` | Pushes latest code to Hugging Face Spaces |
+
+This means every code change is automatically tested and deployed. If a test fails, the deployment is blocked. This is standard CI/CD (Continuous Integration / Continuous Deployment) practice used at every software company.
 
 ---
 
@@ -262,39 +338,69 @@ Each page has a collapsible **ℹ️** button at the top with a plain-English ex
 
 ## MLflow Experiment Tracking
 
-Every training run is automatically logged:
+Every training run is automatically logged to MLflow — parameters, metrics, runtime, and model artifacts. This creates a permanent, comparable record of every model version ever trained.
 
 ```bash
-python train.py        # logs all steps
-mlflow ui              # view at http://localhost:5000
+python train.py        # runs pipeline and logs everything to MLflow
+mlflow ui              # open dashboard at http://localhost:5000
 ```
 
-What gets logged per run:
-- All Optuna hyperparameters
-- Val PR-AUC, ROC-AUC, Precision@5%, Recall@5%
-- Test PR-AUC, ROC-AUC
-- ROI metrics (fraud caught, net benefit, ROI multiplier)
-- Best model artifact (`.joblib`)
-- Config file used
+### What gets logged per run
+
+| Category | What's logged |
+|----------|--------------|
+| **Parameters** | Config file used, Optuna trial settings, random state |
+| **Dataset metrics** | Row count (15,420), fraud rate (5.99%), validation pass/fail |
+| **Model metrics** | Val PR-AUC, Val ROC-AUC, Precision@5%, Recall@5% |
+| **Test metrics** | Test PR-AUC, Test ROC-AUC (honest, unseen data) |
+| **Business metrics** | Fraud caught, losses prevented, investigation costs, net benefit, ROI |
+| **Artifacts** | Best model `.joblib` file |
+| **Runtime** | Total pipeline duration in seconds |
+
+### Nested runs (parent + child)
+The pipeline uses nested MLflow runs to keep things organized:
+- **`full_pipeline`** (parent) — logs dataset stats and overall pipeline metrics
+- **`model_improvement`** (child) — logs all model-specific metrics from Optuna tuning
+
+![MLflow model_improvement run](images/8.png)
+
+### Why experiment tracking matters
+Without MLflow, every training run's results exist only in the terminal — close it and they're gone. With MLflow you can:
+- Compare 10 different runs side by side to find the best settings
+- Prove to stakeholders which model is in production and why it was chosen
+- Reproduce any past run exactly by checking what parameters were used
+- Track model performance over time as new data arrives
+
+In regulated industries like insurance, an audit trail of model decisions is often legally required.
 
 ---
 
 ## Tests
 
+The project has 60+ automated tests covering all core modules. Tests run automatically on every GitHub push via CI.
+
 ```bash
 pytest tests/           # run all tests
-pytest tests/ -v        # verbose output
+pytest tests/ -v        # verbose output with test names
 pytest tests/ --cov=.   # with coverage report
 ```
 
+### Test files
+
 | Test File | What it covers |
 |-----------|---------------|
-| `test_feature_engineering.py` | 30+ tests: ordinal encoding, risk flags, guideline flags, interactions |
-| `test_preprocessing.py` | Data split ratios, no overlap, preprocessor output, validation checks |
-| `test_modeling_utils.py` | Precision@K, recall@K, triage bucket counts, ROI calculation, reason codes |
-| `test_rag_pipeline.py` | Document chunking, query building, template brief generation |
+| `test_feature_engineering.py` | 30+ tests: ordinal encoding correctness, binary risk flags, guideline-grounded flags, interaction features, REPLACED_CATEGORICALS list |
+| `test_preprocessing.py` | Data split ratios (80/10/10), no overlap between splits, stratification, preprocessor output shape, no NaN after transform, PolicyNumber dropped |
+| `test_modeling_utils.py` | Precision@K, Recall@K, triage bucket counts (5%/15%/80%), ROI calculation, reason code generation, OHE decoding |
+| `test_rag_pipeline.py` | Document chunking, chunk uniqueness, query building, template brief generation for all 3 triage buckets, API key fallback |
 
-Tests run automatically on every GitHub push via `.github/workflows/tests.yml`.
+### Why tests matter
+Without tests, every code change risks silently breaking something. For example:
+- A change to `engineer_features()` might accidentally drop a guideline flag
+- A change to the triage bucket logic might shift the 5%/15% thresholds
+- A change to reason code generation might break OHE decoding for columns with underscores
+
+Tests catch these instantly. The GitHub Action blocks deployment if any test fails — so broken code can never reach the live app.
 
 ---
 
