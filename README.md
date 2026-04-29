@@ -1,3 +1,15 @@
+---
+title: Insurance Fraud Triage
+emoji: 🔍
+colorFrom: blue
+colorTo: red
+sdk: docker
+app_port: 8501
+pinned: false
+license: mit
+short_description: ML-powered automotive insurance fraud triage dashboard
+---
+
 # Automotive Insurance Claims Risk Triage
 
 > **FSE 570 Capstone Project** — Arizona State University
