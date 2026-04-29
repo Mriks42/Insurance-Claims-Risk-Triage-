@@ -26,7 +26,7 @@ An end-to-end fraud detection system for automotive insurance claims.
 ## Pages
 | Page | Description |
 |------|-------------|
-| 📊 Summary Dashboard | KPIs, PR curve, SHAP importance, triage bucket fraud rates, ROI |
+| 📊 Summary Dashboard | KPIs, PR curve (test set), confusion matrix, calibration curve, SHAP importance, triage bucket fraud rates, ROI |
 | 📋 Review Queue | 1,542 test claims ranked by risk score, filterable |
 | 🔎 Claim Detail | Per-claim SHAP waterfall, reason codes, RAG triage brief |
 | ⚡ Live Scoring | Score a new claim in real time |

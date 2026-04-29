@@ -45,6 +45,9 @@ jobs:
           HF_USERNAME:   ${{ secrets.HF_USERNAME }}
           HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
         run: |
+          # Replace README.md with the HF version (which has the required front matter)
+          cp README_HF.md README.md
+
           python - <<'EOF'
           from huggingface_hub import HfApi
           import os
