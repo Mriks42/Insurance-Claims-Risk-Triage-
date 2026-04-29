@@ -25,7 +25,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=".env", override=True)
 
 # ── page config ──────────────────────────────────────────────
 st.set_page_config(
@@ -368,18 +368,7 @@ def render_sidebar(metadata):
         st.caption(f"Trained: {metadata.get('trained_at','')[:10]}")
 
         st.divider()
-        st.markdown("**OpenAI API Key** *(optional)*")
-        api_key = st.text_input(
-            "Paste key for GPT briefs",
-            type="password",
-            placeholder="sk-...",
-            label_visibility="collapsed",
-        )
-        if api_key:
-            os.environ["OPENAI_API_KEY"] = api_key
-            st.success("Key set — LLM briefs enabled")
-        else:
-            st.info("Using template briefs (no key needed)")
+        st.caption("RAG briefs powered by GPT-4o-mini" if os.environ.get("OPENAI_API_KEY") else "RAG briefs using template fallback")
 
     return page
 
