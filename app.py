@@ -347,7 +347,7 @@ def build_waterfall(shap_row, feat_names, base_value, top_n=10):
 
 def render_sidebar(metadata):
     with st.sidebar:
-        st.markdown("## 🔍 Fraud Triage")
+        st.markdown("## 🔍 Insurance Claims Fraud Triage")
         st.caption("FSE 570 Capstone · Team Connecticut")
         st.divider()
 
@@ -1794,9 +1794,7 @@ labels["Fraud"] = (
             st.markdown("**PR Curve — Medicare Model**")
             pr_path = os.path.join(medicare_dir, "medicare_pr_curve.png")
             if os.path.exists(pr_path):
-                _, col_pr, _ = st.columns([0.3, 2, 0.3])
-                with col_pr:
-                    st.image(pr_path, use_container_width=True)
+                st.image(pr_path, width=480)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1804,9 +1802,7 @@ labels["Fraud"] = (
         st.markdown("**Key Finding: Domain-Specific Fraud Signals (SHAP)**")
         shap_comp_path = os.path.join(medicare_dir, "shap_comparison.png")
         if os.path.exists(shap_comp_path):
-            _, col_shap, _ = st.columns([0.2, 2, 0.2])
-            with col_shap:
-                st.image(shap_comp_path, use_container_width=True)
+            st.image(shap_comp_path, width=750)
         st.caption(
             "Auto insurance fraud is driven by **claim characteristics** (fault, police reports, vehicle type). "
             "Medicare fraud is driven by **billing volume** (total reimbursed, inpatient claim count). "
@@ -1820,9 +1816,7 @@ labels["Fraud"] = (
         st.markdown("**PR-AUC Comparison: Auto vs. Medicare**")
         perf_path = os.path.join(medicare_dir, "model_performance_comparison.png")
         if os.path.exists(perf_path):
-            _, col_perf, _ = st.columns([1, 2, 1])
-            with col_perf:
-                st.image(perf_path, use_container_width=True)
+            st.image(perf_path, width=550)
 
     st.divider()
 

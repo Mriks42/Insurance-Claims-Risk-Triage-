@@ -74,7 +74,7 @@ An end-to-end fraud triage system for automotive insurance claims that:
 ```
 FSE 570 Capstone Project/
 │
-├── app.py                        # Streamlit dashboard (7 pages)
+├── app.py                        # Streamlit dashboard (8 pages)
 ├── config.py                     # Shared constants, paths, hyperparameters
 ├── training_config.yaml          # All training settings in one YAML file
 ├── train.py                      # Single command runs the full pipeline
@@ -341,7 +341,7 @@ Each page has a collapsible **ℹ️** button at the top with a plain-English ex
 | `fairness_analysis.py` | Disparate impact analysis across demographic groups |
 | `monitoring.py` | Batch drift detection (Evidently + KS test fallback) |
 | `temporal_analysis.py` | Month-by-month performance tracking |
-| `app.py` | 7-page Streamlit dashboard |
+| `app.py` | 8-page Streamlit dashboard |
 
 ---
 
@@ -584,7 +584,7 @@ OPENAI_API_KEY=sk-your-key-here
 | RAG corpus | 3 docs, 36 chunks, rebuilt every run | 4 docs, 56 chunks, persistent index, GPT-4o-mini integrated |
 | Deployment | Local only | Docker + Hugging Face Spaces (auto-deploy) |
 | Pipeline | 4 manual scripts | Single `python train.py` command |
-| Dashboard | None | 7-page Streamlit app |
+| Dashboard | None | 8-page Streamlit app |
 
 ---
 
