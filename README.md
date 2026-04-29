@@ -41,6 +41,14 @@ An end-to-end fraud triage system for automotive insurance claims that:
 |:-:|:-:|
 | ![Claim Detail](images/3.png) | ![Live Scoring](images/4.png) |
 
+| Fairness Analysis | Model Monitoring |
+|:-:|:-:|
+| ![Fairness Analysis](images/5.png) | ![Model Monitoring](images/6.png) |
+
+| Temporal Analysis |  |
+|:-:|:-:|
+| ![Temporal Analysis](images/7.png) |  |
+
 ---
 
 ## Table of Contents
