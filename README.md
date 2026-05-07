@@ -464,13 +464,15 @@ Tests catch these instantly. The GitHub Action blocks deployment if any test fai
 
 ### ROI
 
-| Metric | Value |
-|--------|-------|
-| Fraud claims caught | 54 |
-| Losses prevented | $810,000 |
-| Investigation costs | $61,600 |
-| **Net benefit** | **$748,400** |
-| **ROI** | **13.1x** |
+| Metric | Validation Set | Test Set |
+|--------|:-:|:-:|
+| Fraud claims caught | 54 | 55 |
+| Losses prevented | $810,000 | $825,000 |
+| Investigation costs | $61,600 | $61,600 |
+| **Net benefit** | **$748,400** | **$763,400** |
+| **ROI** | **13.1x** | **13.4x** |
+
+> Test-set ROI is the honest production estimate (data never seen during training or model selection). Validation-set figures are higher because the model was tuned on that partition.
 
 ---
 
