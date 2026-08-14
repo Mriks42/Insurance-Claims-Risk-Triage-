@@ -107,7 +107,8 @@ def shap_summary_plot(shap_values, X_data, feature_names, save_dir=SHAP_DIR):
 # Per-claim explanations
 # ============================================================
 def explain_top_claims(shap_values, y_prob, y_true, feature_names,
-                       n_claims=None, n_drivers=N_REASON_CODES, save_dir=SHAP_DIR):
+                       n_claims=None, n_drivers=N_REASON_CODES, save_dir=SHAP_DIR,
+                       X_data=None):
     """
     Generate per-claim SHAP explanations for the top high-risk claims.
     Returns a list of explanation dicts.
@@ -122,12 +123,21 @@ def explain_top_claims(shap_values, y_prob, y_true, feature_names,
         claim_shap = shap_values[idx]
         top_fi = np.argsort(np.abs(claim_shap))[::-1][:n_drivers]
 
+        if X_data is not None:
+            row = X_data[idx]
+            row = row.toarray().ravel() if hasattr(row, "toarray") else np.asarray(row).ravel()
+        else:
+            row = None
+
         drivers = []
         for fi in top_fi:
             drivers.append({
                 "feature": feature_names[fi],
                 "shap_value": round(float(claim_shap[fi]), 4),
                 "direction": "increases" if claim_shap[fi] > 0 else "decreases",
+                # value of this feature for THIS claim — lets the reason code say
+                # "is NOT 'Liability'" when the one-hot dummy is 0
+                "feature_value": (None if row is None else float(row[fi])),
             })
 
         explanations.append({
@@ -172,13 +182,19 @@ def explain_top_claims(shap_values, y_prob, y_true, feature_names,
 # ============================================================
 # Human-readable reason codes
 # ============================================================
-def make_reason_code(feature_name, shap_value, cat_cols=None):
+def make_reason_code(feature_name, shap_value, cat_cols=None, feature_value=None):
     """
     Convert a SHAP driver into a human-readable reason code.
 
     Correctly handles OHE features whose original column names contain
     underscores (e.g. AddressChange_Claim_2 to 3 years) by matching
     the longest column-name prefix first.
+
+    feature_value is the claim's value for that one-hot column. A dummy can
+    carry a large SHAP value while being 0 — meaning "this claim is NOT that
+    category, and that matters". Without it the code asserts the claim IS the
+    category, which contradicts the claim's own attributes. When it is None the
+    older, ambiguous phrasing is kept so existing callers do not change meaning.
     """
     direction = "High risk" if shap_value > 0 else "Low risk"
     strength  = abs(shap_value)
@@ -191,15 +207,13 @@ def make_reason_code(feature_name, shap_value, cat_cols=None):
         intensity = "MILD"
 
     # Match longest prefix first to handle columns with underscores
-    if cat_cols:
-        for col in sorted(cat_cols, key=len, reverse=True):
-            prefix = col + "_"
-            if feature_name.startswith(prefix):
-                category_value = feature_name[len(prefix):]
-                return (f"[{intensity}] {direction}: {col} = "
-                        f"'{category_value}' (SHAP: {shap_value:+.4f})")
+    from feature_engineering import humanize_feature
 
-    return f"[{intensity}] {direction}: {feature_name} (SHAP: {shap_value:+.4f})"
+    # Plain English first, raw feature name in brackets. Investigators read the
+    # sentence; the bracketed name keeps the row auditable back to the model.
+    human = humanize_feature(feature_name, cat_cols, feature_value)
+    return (f"[{intensity}] {direction}: {human} "
+            f"[{feature_name}] (SHAP: {shap_value:+.4f})")
 
 
 def generate_reason_codes(explanations, cat_cols=None, save_dir=SHAP_DIR):
@@ -207,7 +221,8 @@ def generate_reason_codes(explanations, cat_cols=None, save_dir=SHAP_DIR):
     rows = []
     for claim in explanations:
         for d in claim["drivers"]:
-            rc = make_reason_code(d["feature"], d["shap_value"], cat_cols)
+            rc = make_reason_code(d["feature"], d["shap_value"], cat_cols,
+                                  d.get("feature_value"))
             rows.append({
                 "rank": claim["rank"],
                 "risk_score": claim["risk_score"],
@@ -225,7 +240,8 @@ def generate_reason_codes(explanations, cat_cols=None, save_dir=SHAP_DIR):
         fraud_str = "Yes" if claim["actual_fraud"] else "No"
         print(f"\nClaim Rank {claim['rank']} | Risk Score: {claim['risk_score']} | Fraud: {fraud_str}")
         for d in claim["drivers"]:
-            rc = make_reason_code(d["feature"], d["shap_value"], cat_cols)
+            rc = make_reason_code(d["feature"], d["shap_value"], cat_cols,
+                                  d.get("feature_value"))
             print(f"  {rc}")
 
     return df
@@ -276,7 +292,8 @@ def run_shap_analysis(data=None):
 
     # Per-claim explanations
     print("\nGenerating per-claim explanations...")
-    explanations = explain_top_claims(shap_values, y_prob, y_val, feature_names)
+    explanations = explain_top_claims(shap_values, y_prob, y_val, feature_names,
+                                      X_data=X_val_t)
 
     # Reason codes
     print("\nGenerating human-readable reason codes...")

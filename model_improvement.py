@@ -27,37 +27,24 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from sklearn.model_selection import (
-    train_test_split,
-    StratifiedKFold,
-    cross_val_score,
-)
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.calibration import CalibratedClassifierCV, calibration_curve
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import average_precision_score
 
 from config import (
-    DATA_PATH, TARGET, RANDOM_STATE, COLS_TO_DROP,
+    RANDOM_STATE,
     METRICS_DIR, PLOTS_DIR, MODELS_DIR, OUTPUTS_DIR,
     OPTUNA_N_TRIALS, OPTUNA_CV_FOLDS, OPTUNA_TIMEOUT,
     AVG_FRAUD_LOSS, SIU_COST, MANUAL_COST,
     PCT_SIU, PCT_MANUAL,
-)
-from feature_engineering import (
-    engineer_features,
-    REPLACED_CATEGORICALS,
-    get_engineered_numeric_cols,
 )
 from modeling import (
     precision_at_k,
     recall_at_k,
     evaluate_model,
     triage_analysis,
+    compute_triage_summary,
     save_best_model,
     calibrate_model,
     plot_calibration_curve,
@@ -72,86 +59,22 @@ os.makedirs(IMPROVEMENT_DIR, exist_ok=True)
 # 1) Load and engineer features
 # ============================================================
 def load_engineered_data():
-    """Load data, engineer features, split, and build preprocessor."""
+    """
+    Load data, engineer features, split, and build the preprocessor.
+
+    Delegates to data_pipeline.build_model_dataset() so the training path and
+    the dashboard cannot drift apart; the *_xgb aliases below preserve the key
+    names the rest of this module already uses.
+    """
     print("\n[1] Loading and engineering features...")
 
-    df = pd.read_csv(DATA_PATH)
-    df = engineer_features(df)
+    from data_pipeline import build_model_dataset
+    data = build_model_dataset(with_catboost_frames=True, verbose=True)
 
-    X = df.drop(columns=[TARGET] + COLS_TO_DROP)
-    y = df[TARGET]
-
-    # XGBoost path: drop original categoricals replaced by numeric versions
-    cols_to_remove = [c for c in REPLACED_CATEGORICALS if c in X.columns]
-    X_xgb = X.drop(columns=cols_to_remove)
-
-    # CatBoost path: keep full feature set (handles cats natively)
-    X_full = X.copy()
-
-    print(f"  Features for XGBoost:  {X_xgb.shape[1]}")
-    print(f"  Features for CatBoost: {X_full.shape[1]}")
-
-    # Stratified 80/10/10 split
-    X_train_xgb, X_temp_xgb, y_train, y_temp = train_test_split(
-        X_xgb, y, test_size=0.20, random_state=RANDOM_STATE, stratify=y
-    )
-    X_val_xgb, X_test_xgb, y_val, y_test = train_test_split(
-        X_temp_xgb, y_temp, test_size=0.50, random_state=RANDOM_STATE, stratify=y_temp
-    )
-
-    X_train_full, X_temp_full, _, _ = train_test_split(
-        X_full, y, test_size=0.20, random_state=RANDOM_STATE, stratify=y
-    )
-    X_val_full, X_test_full, _, _ = train_test_split(
-        X_temp_full, y_temp, test_size=0.50, random_state=RANDOM_STATE, stratify=y_temp
-    )
-
-    print(f"  Train: {X_train_xgb.shape}, Val: {X_val_xgb.shape}, Test: {X_test_xgb.shape}")
-
-    # Build sklearn preprocessor for XGBoost
-    cat_cols = X_train_xgb.select_dtypes(include=["object"]).columns.tolist()
-    num_cols = X_train_xgb.select_dtypes(include=[np.number]).columns.tolist()
-
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ("num", Pipeline([
-                ("imputer", SimpleImputer(strategy="median")),
-                ("scaler", StandardScaler()),
-            ]), num_cols),
-            ("cat", Pipeline([
-                ("imputer", SimpleImputer(strategy="constant", fill_value="Unknown")),
-                ("onehot", OneHotEncoder(handle_unknown="ignore")),
-            ]), cat_cols),
-        ],
-        remainder="drop",
-    )
-    preprocessor.fit(X_train_xgb)
-
-    X_train_t = preprocessor.transform(X_train_xgb)
-    X_val_t   = preprocessor.transform(X_val_xgb)
-    X_test_t  = preprocessor.transform(X_test_xgb)
-
-    feature_names = list(num_cols)
-    ohe = preprocessor.named_transformers_["cat"].named_steps["onehot"]
-    feature_names.extend(ohe.get_feature_names_out(cat_cols))
-
-    neg = (y_train == 0).sum()
-    pos = (y_train == 1).sum()
-    spw = neg / pos
-
-    print(f"  Transformed features: {X_train_t.shape[1]}")
-    print(f"  scale_pos_weight: {spw:.4f}")
-
-    return {
-        "X_train_xgb": X_train_xgb, "X_val_xgb": X_val_xgb, "X_test_xgb": X_test_xgb,
-        "X_train_full": X_train_full, "X_val_full": X_val_full, "X_test_full": X_test_full,
-        "y_train": y_train, "y_val": y_val, "y_test": y_test,
-        "X_train_t": X_train_t, "X_val_t": X_val_t, "X_test_t": X_test_t,
-        "preprocessor": preprocessor,
-        "feature_names": feature_names,
-        "cat_cols": cat_cols, "num_cols": num_cols,
-        "scale_pos_weight": spw,
-    }
+    data["X_train_xgb"] = data["X_train"]
+    data["X_val_xgb"]   = data["X_val"]
+    data["X_test_xgb"]  = data["X_test"]
+    return data
 
 
 # ============================================================
@@ -651,6 +574,25 @@ def main():
         data["y_val"], best_val_prob, model_name=best_name
     )
 
+    # 10b) Persist triage + ROI for BOTH splits.
+    #      The test split is the honest production estimate — it is what the
+    #      README and the dashboard quote, so it has to exist as an artifact
+    #      rather than only being recomputed at render time.
+    triage_summaries = {
+        "model":      best_name,
+        "validation": compute_triage_summary(data["y_val"],  best_val_prob, "validation"),
+        "test":       compute_triage_summary(data["y_test"], test_prob,     "test"),
+    }
+    triage_path = os.path.join(IMPROVEMENT_DIR, "triage_summary.json")
+    with open(triage_path, "w") as f:
+        json.dump(triage_summaries, f, indent=2)
+    print(f"\nSaved triage + ROI summary (val + test) to: {triage_path}")
+    for split in ("validation", "test"):
+        s = triage_summaries[split]
+        print(f"  {split:10s} SIU fraud rate {s['buckets']['SIU']['fraud_rate']:.4f} "
+              f"({s['buckets']['SIU']['enrichment']}x enrichment) | "
+              f"net ${s['roi']['net_benefit']:,} @ {s['roi']['roi_x']}x")
+
     # 11) Save best model
     import joblib
     joblib.dump(best_model_obj,
@@ -738,7 +680,12 @@ def main():
         "val_size":         int(len(data["y_val"])),
         "test_size":        int(len(data["y_test"])),
         "fraud_rate":       float(data["y_train"].mean()),
-        "triage_roi":       roi,
+        # triage_roi is the VALIDATION split (kept for backwards compatibility).
+        # triage_roi_test / siu_enrichment_test are the held-out figures to quote.
+        "triage_roi":            roi,
+        "triage_roi_test":       triage_summaries["test"]["roi"],
+        "siu_enrichment_val":    triage_summaries["validation"]["buckets"]["SIU"]["enrichment"],
+        "siu_enrichment_test":   triage_summaries["test"]["buckets"]["SIU"]["enrichment"],
         "trained_at":       pd.Timestamp.now().isoformat(),
         "models_compared":  comparison["Model"].tolist(),
     }

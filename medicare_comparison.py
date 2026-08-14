@@ -71,7 +71,8 @@ def load_medicare():
     bene_merged = bene_inp.merge(bene, on="BeneID", how="left")
     chronic_cols = [c for c in bene.columns if c.startswith("ChronicCond_")]
     bene_agg = bene_merged.groupby("Provider").agg(
-        AvgChronicConditions = (chronic_cols[0], "mean"),  # proxy
+        # only chronic_cols[0] (ChronicCond_Alzheimer), not a count across conditions
+        AvgAlzheimerFlag     = (chronic_cols[0], "mean"),
         UniqueStates         = ("State", "nunique"),
         AvgIPReimbursement   = ("IPAnnualReimbursementAmt", "mean"),
         AvgOPReimbursement   = ("OPAnnualReimbursementAmt", "mean"),

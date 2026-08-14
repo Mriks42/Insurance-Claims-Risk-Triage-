@@ -39,8 +39,14 @@ N_BATCHES = 6   # split test set into 6 batches (simulates 6 weeks/months)
 # ============================================================
 def create_batches(df_raw, risk_scores, y_true, n_batches=N_BATCHES):
     """
-    Split data into n_batches ordered by Month column (if available),
-    otherwise by row order. Simulates claims arriving over time.
+    Split data into n_batches in chronological order. Simulates claims arriving
+    over time.
+
+    Ordering is (Year, Month), not Month alone. This dataset spans 1994-1996 and
+    every calendar month contains claims from all three years, so sorting by
+    month name alone interleaved 1994/1995/1996 within each batch — the batches
+    were labelled "time-ordered" but weren't, and the Year feature then shifted
+    across batches purely as an artifact of the ordering.
 
     Returns list of batch dicts.
     """
@@ -48,14 +54,15 @@ def create_batches(df_raw, risk_scores, y_true, n_batches=N_BATCHES):
     df["_risk_score"] = risk_scores
     df["_actual"]     = np.array(y_true)
 
-    # Sort by Month if available for realistic temporal ordering
     month_order = {
         "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
         "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
     }
     if "Month" in df.columns:
         df["_month_num"] = df["Month"].map(month_order).fillna(0)
-        df = df.sort_values("_month_num").reset_index(drop=True)
+        sort_keys = (["Year", "_month_num"] if "Year" in df.columns
+                     else ["_month_num"])
+        df = df.sort_values(sort_keys).reset_index(drop=True)
 
     batch_size = len(df) // n_batches
     batches = []
@@ -160,9 +167,17 @@ def compute_drift_report(reference_df, current_df, feature_cols,
         return _manual_drift_check(reference_df, current_df, feature_cols, batch_label)
 
 
-def _manual_drift_check(reference_df, current_df, feature_cols, batch_label):
+def _manual_drift_check(reference_df, current_df, feature_cols, batch_label,
+                         alpha=0.05):
     """
-    Fallback drift detection using KS test (no Evidently needed).
+    Drift detection via two-sample KS tests, with Benjamini-Hochberg correction.
+
+    Correction matters here: with 7 features across 5 batches this runs 35
+    hypothesis tests, so at alpha=0.05 roughly 1.75 features are expected to
+    look "drifted" by chance alone. The old version flagged the whole dataset as
+    drifted if ANY single raw p-value fell below 0.05, which made the warning
+    close to guaranteed regardless of the data. `dataset_drift` is now based on
+    the BH-adjusted p-values; raw counts are still reported for comparison.
     """
     from scipy import stats
 
@@ -170,62 +185,100 @@ def _manual_drift_check(reference_df, current_df, feature_cols, batch_label):
                    if c in reference_df.columns and c in current_df.columns]
     num_cols = reference_df[shared_cols].select_dtypes(include=[np.number]).columns.tolist()
 
-    drifted = []
+    tested, p_values = [], []
     for col in num_cols:
         ref_vals = reference_df[col].dropna().values
         cur_vals = current_df[col].dropna().values
         if len(ref_vals) > 10 and len(cur_vals) > 10:
-            stat, p_val = stats.ks_2samp(ref_vals, cur_vals)
-            if p_val < 0.05:
-                drifted.append(col)
+            _, p_val = stats.ks_2samp(ref_vals, cur_vals)
+            tested.append(col)
+            p_values.append(float(p_val))
+
+    drifted_raw = [c for c, p in zip(tested, p_values) if p < alpha]
+
+    # Benjamini-Hochberg. scipy.stats.false_discovery_control landed in 1.11;
+    # fall back to uncorrected p-values on older installs rather than failing.
+    if p_values:
+        try:
+            adjusted = list(stats.false_discovery_control(p_values, method="bh"))
+        except AttributeError:
+            adjusted = p_values
+    else:
+        adjusted = []
+    drifted = [c for c, p in zip(tested, adjusted) if p < alpha]
 
     return {
-        "batch_label":        batch_label,
-        "dataset_drift":      len(drifted) > 0,
-        "drift_share":        len(drifted) / max(1, len(num_cols)),
-        "n_drifted_features": len(drifted),
-        "n_features":         len(num_cols),
-        "drifted_features":   drifted,
-        "html_report":        None,
+        "batch_label":            batch_label,
+        "dataset_drift":          len(drifted) > 0,
+        "drift_share":            len(drifted) / max(1, len(tested)),
+        "n_drifted_features":     len(drifted),
+        "n_drifted_uncorrected":  len(drifted_raw),
+        "n_features":             len(tested),
+        "drifted_features":       drifted,
+        "tested_features":        tested,
+        "html_report":            None,
     }
 
 
 # ============================================================
 # Full monitoring pipeline
 # ============================================================
-def run_monitoring(df_raw, risk_scores, y_true, reference_df=None):
+# Features excluded from drift testing.
+#   Year      — batches are ordered BY year, so testing it is circular: it is
+#               guaranteed to "drift" as a direct consequence of the batching.
+#   RepNumber — a claims-rep identifier, not a measured quantity; a shift in it
+#               reflects staffing, not the data distribution the model sees.
+DRIFT_EXCLUDE = ["Year", "RepNumber"]
+
+
+def run_monitoring(df_raw, risk_scores, y_true, reference_df=None,
+                   drift_exclude=None, write_outputs=True):
     """
     Run the full monitoring pipeline.
 
     Args:
-        df_raw:       Raw test dataframe
-        risk_scores:  Model predictions on test set
-        y_true:       Actual labels
-        reference_df: Reference (training) dataframe for drift comparison.
-                      If None, uses first batch as reference.
+        df_raw:        Raw test dataframe
+        risk_scores:   Model predictions on the test set
+        y_true:        Actual labels
+        reference_df:  Reference dataframe for drift comparison. Pass the RAW
+                       TRAINING ROWS — that is what "has the incoming data
+                       drifted from what the model was trained on?" actually
+                       means. Falling back to batch 1 (the old default) only
+                       compares held-out data against itself.
+        drift_exclude: Feature names to skip (defaults to DRIFT_EXCLUDE).
+        write_outputs: Write CSVs to outputs/monitoring/. False when called from
+                       the dashboard, so rendering a page has no side effects.
 
     Returns:
-        dict with batch_stats and drift_results
+        dict with batch_stats, drift_results, batches and reference_kind
     """
     print("Running monitoring pipeline...")
 
-    # Create batches
     batches = create_batches(df_raw, risk_scores, y_true)
     print(f"  Created {len(batches)} batches of ~{batches[0]['n']} claims each")
 
-    # Compute per-batch statistics
     batch_stats = [batch_statistics(b) for b in batches]
     stats_df = pd.DataFrame(batch_stats)
-    stats_df.to_csv(os.path.join(MONITORING_DIR, "batch_statistics.csv"), index=False)
+    if write_outputs:
+        stats_df.to_csv(os.path.join(MONITORING_DIR, "batch_statistics.csv"), index=False)
 
-    # Drift detection (use first batch as reference if no training data provided)
-    drift_results = []
-    ref_df = reference_df if reference_df is not None else batches[0]["df"]
+    if reference_df is not None:
+        ref_df, reference_kind = reference_df, "training split"
+    else:
+        ref_df, reference_kind = batches[0]["df"], "batch 1 (no reference supplied)"
+    print(f"  Drift reference: {reference_kind}")
+
+    exclude = DRIFT_EXCLUDE if drift_exclude is None else drift_exclude
     num_feature_cols = [c for c in df_raw.columns
                         if df_raw[c].dtype in [np.float64, np.int64, float, int]
-                        and c not in ["FraudFound_P", "PolicyNumber"]]
+                        and c not in ["FraudFound_P", "PolicyNumber"]
+                        and c not in exclude]
+    print(f"  Drift features ({len(num_feature_cols)}): {num_feature_cols}")
+    if exclude:
+        print(f"  Excluded: {exclude}")
 
-    for batch in batches[1:]:   # compare each batch against reference
+    drift_results = []
+    for batch in batches:   # every batch is compared against the reference
         drift = compute_drift_report(
             ref_df, batch["df"],
             feature_cols=num_feature_cols,
@@ -234,17 +287,21 @@ def run_monitoring(df_raw, risk_scores, y_true, reference_df=None):
         drift_results.append(drift)
         status = "⚠️ DRIFT" if drift["dataset_drift"] else "✅ Stable"
         print(f"  {batch['label']}: {status} "
-              f"({drift['n_drifted_features']}/{drift['n_features']} features drifted)")
+              f"({drift['n_drifted_features']}/{drift['n_features']} features drifted"
+              f", {drift.get('n_drifted_uncorrected', '?')} before BH correction)")
 
-    # Save drift summary
-    drift_df = pd.DataFrame([{k: v for k, v in d.items() if k != "html_report"}
-                              for d in drift_results])
-    drift_df.to_csv(os.path.join(MONITORING_DIR, "drift_summary.csv"), index=False)
+    if write_outputs:
+        drift_df = pd.DataFrame([{k: v for k, v in d.items() if k != "html_report"}
+                                  for d in drift_results])
+        drift_df.to_csv(os.path.join(MONITORING_DIR, "drift_summary.csv"), index=False)
 
     return {
-        "batch_stats":   stats_df,
-        "drift_results": drift_results,
-        "batches":       batches,
+        "batch_stats":    stats_df,
+        "drift_results":  drift_results,
+        "batches":        batches,
+        "reference_kind": reference_kind,
+        "drift_features": num_feature_cols,
+        "excluded":       exclude,
     }
 
 
@@ -336,49 +393,19 @@ if __name__ == "__main__":
     print("Model Monitoring & Drift Detection")
     print("=" * 60)
 
-    import joblib
-    from config import DATA_PATH, TARGET, COLS_TO_DROP, RANDOM_STATE
-    from feature_engineering import engineer_features, REPLACED_CATEGORICALS
-    from sklearn.model_selection import train_test_split
-    from sklearn.compose import ColumnTransformer
-    from sklearn.pipeline import Pipeline
-    from sklearn.impute import SimpleImputer
-    from sklearn.preprocessing import OneHotEncoder, StandardScaler
+    from data_pipeline import build_model_dataset, load_best_model, raw_rows_for
 
-    df_raw = pd.read_csv(DATA_PATH)
-    df_eng = engineer_features(df_raw)
+    data  = build_model_dataset()
+    model = load_best_model()
 
-    X = df_eng.drop(columns=[TARGET] + COLS_TO_DROP)
-    y = df_eng[TARGET]
-    cols_to_remove = [c for c in REPLACED_CATEGORICALS if c in X.columns]
-    X_xgb = X.drop(columns=cols_to_remove)
+    risk_scores = model.predict_proba(data["X_test_t"])[:, 1]
+    raw_test    = raw_rows_for(data, "test")
+    raw_train   = raw_rows_for(data, "train")   # drift reference
 
-    X_train, X_temp, y_train, y_temp = train_test_split(
-        X_xgb, y, test_size=0.20, random_state=RANDOM_STATE, stratify=y
+    results = run_monitoring(
+        raw_test, risk_scores, data["y_test"].values,
+        reference_df=raw_train,
     )
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_temp, y_temp, test_size=0.50, random_state=RANDOM_STATE, stratify=y_temp
-    )
-
-    cat_cols = X_train.select_dtypes(include=["object"]).columns.tolist()
-    num_cols = X_train.select_dtypes(include=[np.number]).columns.tolist()
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ("num", Pipeline([("imp", SimpleImputer(strategy="median")),
-                              ("sc", StandardScaler())]), num_cols),
-            ("cat", Pipeline([("imp", SimpleImputer(strategy="constant",
-                                                     fill_value="Unknown")),
-                              ("ohe", OneHotEncoder(handle_unknown="ignore"))]), cat_cols),
-        ], remainder="drop"
-    )
-    preprocessor.fit(X_train)
-    X_test_t = preprocessor.transform(X_test)
-
-    model = joblib.load(os.path.join(OUTPUTS_DIR, "improvement", "best_model_improved.joblib"))
-    risk_scores = model.predict_proba(X_test_t)[:, 1]
-
-    raw_test = df_raw.iloc[y_test.index].reset_index(drop=True)
-    results  = run_monitoring(raw_test, risk_scores, y_test.values)
 
     plot_monitoring_charts(results["batch_stats"])
 

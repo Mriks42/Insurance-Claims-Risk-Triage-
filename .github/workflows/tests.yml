@@ -40,14 +40,17 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests with coverage
+        # test_modeling_utils.py used to be excluded as "app-dependent", but the
+        # only thing it needed was streamlit + python-dotenv, both of which are
+        # in requirements.txt and installed above. Excluding it hid 31 passing
+        # tests — including the triage-bucket and ROI logic the README points at.
         run: |
           pytest tests/ \
             --tb=short \
             --cov=. \
             --cov-report=term-missing \
             --cov-report=xml \
-            -v \
-            --ignore=tests/test_modeling_utils.py  # skip app-dependent tests in CI
+            -v
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v4

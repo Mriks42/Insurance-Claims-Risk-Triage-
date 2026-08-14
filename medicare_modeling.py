@@ -82,8 +82,15 @@ def load_and_prepare():
     bene_inp = inp[["Provider", "BeneID"]].drop_duplicates()
     bene_merged = bene_inp.merge(bene, on="BeneID", how="left")
 
+    # NOTE: this aggregates only chronic_cols[0] (ChronicCond_Alzheimer), not a
+    # count across all chronic conditions — the name is now honest about that.
+    # Summing across every ChronicCond_* column would be the better feature, but
+    # it changes the feature matrix and would invalidate the published Medicare
+    # results, so it is deferred to the next retrain.
+    # Also note bene_merged is joined via INPATIENT claims only, so providers
+    # with outpatient claims exclusively get 0 for every beneficiary feature.
     bene_agg = bene_merged.groupby("Provider").agg(
-        AvgChronicConditions  = (chronic_cols[0],              "mean"),
+        AvgAlzheimerFlag      = (chronic_cols[0],              "mean"),
         UniqueStates          = ("State",                      "nunique"),
         AvgIPAnnualReimb      = ("IPAnnualReimbursementAmt",   "mean"),
         AvgOPAnnualReimb      = ("OPAnnualReimbursementAmt",   "mean"),

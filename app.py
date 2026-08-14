@@ -134,69 +134,18 @@ def load_rag():
 
 @st.cache_data(show_spinner="Loading data…")
 def load_all_data():
-    """Load dataset, run feature engineering + preprocessing, score every claim."""
-    from config import DATA_PATH, TARGET, COLS_TO_DROP, RANDOM_STATE
-    from feature_engineering import engineer_features, REPLACED_CATEGORICALS
-    from sklearn.model_selection import train_test_split
-    from sklearn.compose import ColumnTransformer
-    from sklearn.pipeline import Pipeline
-    from sklearn.impute import SimpleImputer
-    from sklearn.preprocessing import OneHotEncoder, StandardScaler
+    """
+    Load dataset, run feature engineering + preprocessing, score every claim.
 
-    df_raw = pd.read_csv(DATA_PATH)
-    df     = engineer_features(df_raw)
+    Uses the same builder as the training pipeline (data_pipeline), so the
+    dashboard is guaranteed to reproduce the exact split and feature space the
+    model was trained on.
+    """
+    from data_pipeline import build_model_dataset
 
-    X = df.drop(columns=[TARGET] + COLS_TO_DROP)
-    y = df[TARGET]
-
-    # XGBoost feature set (drop replaced categoricals)
-    cols_to_remove = [c for c in REPLACED_CATEGORICALS if c in X.columns]
-    X_xgb = X.drop(columns=cols_to_remove)
-
-    # Reproduce the same 80/10/10 split used during training
-    X_tr, X_temp, y_tr, y_temp = train_test_split(
-        X_xgb, y, test_size=0.20, random_state=RANDOM_STATE, stratify=y
-    )
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_temp, y_temp, test_size=0.50, random_state=RANDOM_STATE, stratify=y_temp
-    )
-
-    # Rebuild preprocessor on training split
-    cat_cols = X_tr.select_dtypes(include=["object"]).columns.tolist()
-    num_cols = X_tr.select_dtypes(include=[np.number]).columns.tolist()
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ("num", Pipeline([
-                ("imp", SimpleImputer(strategy="median")),
-                ("sc",  StandardScaler()),
-            ]), num_cols),
-            ("cat", Pipeline([
-                ("imp", SimpleImputer(strategy="constant", fill_value="Unknown")),
-                ("ohe", OneHotEncoder(handle_unknown="ignore")),
-            ]), cat_cols),
-        ],
-        remainder="drop",
-    )
-    preprocessor.fit(X_tr)
-
-    X_val_t  = preprocessor.transform(X_val)
-    X_test_t = preprocessor.transform(X_test)
-
-    # Feature names
-    feat_names = list(num_cols)
-    ohe = preprocessor.named_transformers_["cat"].named_steps["ohe"]
-    feat_names.extend(ohe.get_feature_names_out(cat_cols))
-
-    return {
-        "df_raw": df_raw,
-        "df_eng": df,
-        "X_val": X_val, "X_test": X_test,
-        "X_val_t": X_val_t, "X_test_t": X_test_t,
-        "y_val": y_val, "y_test": y_test,
-        "preprocessor": preprocessor,
-        "feat_names": feat_names,
-        "cat_cols": cat_cols, "num_cols": num_cols,
-    }
+    data = build_model_dataset()
+    data["feat_names"] = data["feature_names"]
+    return data
 
 
 @st.cache_data(show_spinner="Scoring claims…")
@@ -272,9 +221,19 @@ def compute_test_roi(test_prob, y_test,
 
 
 def assign_bucket(score, pct_siu=0.05, pct_manual=0.15, all_scores=None):
+    """
+    Bucket a score against a reference population.
+
+    Thresholds come from RANK positions, not np.percentile. Percentile
+    interpolates between neighbouring scores, which put 78 claims in a "top 5%"
+    bucket of 1,542 where the rank cut takes 77 — so the Review Queue reported
+    309 flagged claims while the ROI figures were computed on 308.
+    """
     if all_scores is not None:
-        siu_thresh    = np.percentile(all_scores, 100 * (1 - pct_siu))
-        manual_thresh = np.percentile(all_scores, 100 * (1 - pct_siu - pct_manual))
+        ordered = np.sort(np.asarray(all_scores))[::-1]
+        n = len(ordered)
+        siu_thresh    = ordered[max(0, int(pct_siu * n) - 1)]
+        manual_thresh = ordered[max(0, int((pct_siu + pct_manual) * n) - 1)]
         if score >= siu_thresh:
             return "SIU"
         elif score >= manual_thresh:
@@ -288,8 +247,20 @@ BUCKET_COLOR = {"SIU": "#e74c3c", "Manual Review": "#f39c12", "Approve": "#27ae6
 BUCKET_EMOJI = {"SIU": "🔴", "Manual Review": "🟡", "Approve": "🟢"}
 
 
-def make_reason_codes(shap_row, feat_names, cat_cols, top_n=5):
-    """Convert a SHAP row into human-readable reason codes."""
+def make_reason_codes(shap_row, feat_names, cat_cols, top_n=5, feature_values=None):
+    """
+    Convert a SHAP row into human-readable reason codes.
+
+    feature_values: the claim's transformed feature row. Required to phrase
+    one-hot features correctly. A dummy like `BasePolicy_Liability` can carry a
+    large SHAP value while being 0 for this claim — the model is saying "this
+    claim is NOT liability, and that matters". Without the value, the code read
+    "BasePolicy = 'Liability'", which contradicted the Claim Attributes table
+    directly beside it (and the generated triage brief) whenever the claim was
+    Collision or All Perils.
+    """
+    from feature_engineering import humanize_feature
+
     top_idx = np.argsort(np.abs(shap_row))[::-1][:top_n]
     codes = []
     for i in top_idx:
@@ -299,20 +270,25 @@ def make_reason_codes(shap_row, feat_names, cat_cols, top_n=5):
         strength  = abs(sv)
         intensity = "STRONG" if strength > 0.5 else "MODERATE" if strength > 0.2 else "MILD"
 
-        # Decode OHE feature names
-        decoded = fname
-        for col in sorted(cat_cols, key=len, reverse=True):
-            if fname.startswith(col + "_"):
-                decoded = f"{col} = '{fname[len(col)+1:]}'"
-                break
+        value = None if feature_values is None else feature_values[i]
+        decoded = humanize_feature(fname, cat_cols, value)
 
         codes.append({
             "label":     f"[{intensity}] {direction}: {decoded}",
+            "technical": fname,      # kept for audit / debugging, shown muted
             "shap":      sv,
             "direction": direction,
             "intensity": intensity,
         })
     return codes
+
+
+def row_values(X, i):
+    """One row of a transformed matrix as a dense 1-D array (X may be sparse)."""
+    row = X[i]
+    if hasattr(row, "toarray"):
+        row = row.toarray()
+    return np.asarray(row).ravel()
 
 
 def build_waterfall(shap_row, feat_names, base_value, top_n=10):
@@ -329,10 +305,17 @@ def build_waterfall(shap_row, feat_names, base_value, top_n=10):
         marker_color=colors,
         text=[f"{v:+.4f}" for v in values],
         textposition="outside",
+        # Without this, an outside label on a bar that reaches the axis edge is
+        # clipped by the plot area — "-0.1395" rendered as "1395".
+        cliponaxis=False,
     ))
     fig.update_layout(
-        title=f"SHAP Feature Contributions (base={base_value:.4f})",
-        xaxis_title="SHAP value (impact on fraud probability)",
+        # XGBoost's TreeExplainer returns contributions in MARGIN (log-odds)
+        # space, not probability — a single feature showing -2.60 is impossible
+        # for a probability. base + sum(contributions) passes through a sigmoid
+        # to give the displayed risk score.
+        title=f"SHAP Feature Contributions (base={base_value:.4f}, log-odds)",
+        xaxis_title="SHAP value — impact on log-odds of fraud (not probability)",
         height=400,
         margin=dict(l=10, r=10, t=40, b=10),
         plot_bgcolor="rgba(0,0,0,0)",
@@ -356,7 +339,7 @@ def render_sidebar(metadata):
             ["📊 Summary Dashboard", "📋 Review Queue",
              "🔎 Claim Detail", "⚡ Live Scoring",
              "⚖️ Fairness Analysis", "📡 Monitoring",
-             "📅 Temporal Analysis", "🗂️ Dataset Comparison"],
+             "📅 Seasonality Analysis", "🗂️ Dataset Comparison"],
             label_visibility="collapsed",
         )
 
@@ -378,7 +361,10 @@ def render_sidebar(metadata):
 # PAGE 1 — SUMMARY DASHBOARD
 # ══════════════════════════════════════════════════════════════
 
-def page_summary(metadata, val_prob, test_prob, y_test, shap_imp, model_comparison):
+def page_summary(metadata, test_prob, y_test, shap_imp, model_comparison):
+    # Takes only test_prob by design. It previously also received val_prob, and
+    # two charts silently mixed the splits — a validation histogram under test
+    # thresholds, and test counts over a validation denominator.
     st.title("📊 Summary Dashboard")
     st.caption("Real-time fraud risk overview — test set (1,542 claims, completely unseen during training)")
 
@@ -400,25 +386,46 @@ def page_summary(metadata, val_prob, test_prob, y_test, shap_imp, model_comparis
     all_scores = test_prob
     y_arr = np.array(y_test)
 
-    siu_thresh    = np.percentile(all_scores, 95)
-    manual_thresh = np.percentile(all_scores, 80)
-    siu_mask    = all_scores >= siu_thresh
-    manual_mask = (all_scores >= manual_thresh) & ~siu_mask
-    approve_mask = ~siu_mask & ~manual_mask
+    # Buckets are assigned by RANK, not by a percentile threshold, so that this
+    # page agrees with compute_test_roi(), compute_triage_summary() and
+    # outputs/improvement/triage_summary.json. `>= np.percentile(x, 95)` returned
+    # 78 SIU claims where the rank cut takes 77, so the KPI cards, the enrichment
+    # chart and the confusion matrix were all describing a slightly different
+    # bucket than the ROI row directly beneath them (4.51x vs 4.57x enrichment,
+    # precision 0.269 vs 0.273).
+    from config import PCT_SIU, PCT_MANUAL
+    n_scored   = len(all_scores)
+    siu_cut    = int(PCT_SIU * n_scored)
+    manual_cut = int((PCT_SIU + PCT_MANUAL) * n_scored)
+    rank_of    = np.empty(n_scored, dtype=int)
+    rank_of[np.argsort(all_scores)[::-1]] = np.arange(n_scored)
+
+    siu_mask     = rank_of < siu_cut
+    manual_mask  = (rank_of >= siu_cut) & (rank_of < manual_cut)
+    approve_mask = rank_of >= manual_cut
+
+    # Score at the bucket boundaries — for display and for the operational
+    # threshold used by the confusion matrix below.
+    ordered       = np.sort(all_scores)[::-1]
+    siu_thresh    = float(ordered[siu_cut - 1])
+    manual_thresh = float(ordered[manual_cut - 1])
 
     # ── KPI row ──────────────────────────────────────────────
+    # Denominators must be the TEST split — the masks above come from test_prob.
+    # (val and test are both 1,542 today, so this was right by coincidence.)
+    n_claims = len(test_prob)
     c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("Total Claims",     f"{len(val_prob):,}")
+    c1.metric("Total Claims",     f"{n_claims:,}")
     c2.metric("🔴 SIU",           f"{siu_mask.sum():,}",
-              delta=f"{siu_mask.sum()/len(val_prob)*100:.1f}% of claims")
+              delta=f"{siu_mask.sum()/n_claims*100:.1f}% of claims", delta_color="off")
     c3.metric("🟡 Manual Review", f"{manual_mask.sum():,}",
-              delta=f"{manual_mask.sum()/len(val_prob)*100:.1f}% of claims")
+              delta=f"{manual_mask.sum()/n_claims*100:.1f}% of claims", delta_color="off")
     c4.metric("🟢 Approve",       f"{approve_mask.sum():,}",
-              delta=f"{approve_mask.sum()/len(val_prob)*100:.1f}% of claims")
+              delta=f"{approve_mask.sum()/n_claims*100:.1f}% of claims", delta_color="off")
     c5.metric("Test PR-AUC",      f"{metadata['test_pr_auc']:.4f}",
-              delta=f"Val PR-AUC {metadata['val_pr_auc']:.4f}")
+              delta=f"Val PR-AUC {metadata['val_pr_auc']:.4f}", delta_color="off")
     c6.metric("Net ROI",          f"{roi['roi_x']:.1f}x",
-              delta=f"${roi['net_benefit']:,.0f} net benefit")
+              delta=f"${roi['net_benefit']:,.0f} net benefit", delta_color="off")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -475,10 +482,13 @@ def page_summary(metadata, val_prob, test_prob, y_test, shap_imp, model_comparis
         )
 
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("**Risk Score Distribution**")
+        st.markdown("**Risk Score Distribution** *(test set)*")
+        # Must be test_prob: the SIU/Manual cut lines below are percentiles of
+        # test_prob, so plotting val_prob here drew test thresholds over a
+        # validation histogram.
         fig2 = go.Figure()
         fig2.add_trace(go.Histogram(
-            x=val_prob, nbinsx=40,
+            x=test_prob, nbinsx=40,
             marker_color="#2563eb", opacity=0.7,
             name="All claims",
         ))
@@ -580,8 +590,10 @@ def page_summary(metadata, val_prob, test_prob, y_test, shap_imp, model_comparis
     with col_cm:
         st.markdown("**Confusion Matrix @ Operational Threshold (Top 5%)**")
         from sklearn.metrics import confusion_matrix as sk_cm
-        op_thresh  = float(np.percentile(all_scores, 95))
-        y_pred_op  = (all_scores >= op_thresh).astype(int)
+        # Use the same rank-based SIU mask as the KPI cards and the ROI figures,
+        # so TP + FP equals the SIU count shown above rather than 78 vs 77.
+        op_thresh  = siu_thresh
+        y_pred_op  = siu_mask.astype(int)
         cm         = sk_cm(y_arr, y_pred_op)
         tn, fp, fn, tp = cm.ravel()
 
@@ -607,6 +619,15 @@ def page_summary(metadata, val_prob, test_prob, y_test, shap_imp, model_comparis
 
     with col_cal:
         st.markdown("**Calibration Curve (Reliability Diagram)**")
+        st.caption(
+            "The curve sits **below** the diagonal by design, not by accident: the "
+            f"model is trained with `scale_pos_weight≈{15.7:.1f}` to counter a 6% "
+            "base rate, which deliberately inflates the raw scores. A claim scored "
+            "0.80 is not 80% likely to be fraud — it is *high risk relative to other "
+            "claims*. Triage uses **rank** (top 5% / next 15%), so this does not "
+            "affect any bucket assignment; it would only matter if the score were "
+            "read as a literal probability."
+        )
         from sklearn.calibration import calibration_curve
         frac_pos, mean_pred = calibration_curve(y_arr, all_scores, n_bins=10)
         fig_cal = go.Figure()
@@ -641,7 +662,7 @@ def page_summary(metadata, val_prob, test_prob, y_test, shap_imp, model_comparis
 # PAGE 2 — REVIEW QUEUE
 # ══════════════════════════════════════════════════════════════
 
-def page_queue(df_raw, val_prob, y_val):
+def page_queue(df_raw, test_prob, y_test):
     st.title("📋 Review Queue")
     st.caption("Claims ranked by fraud risk score — highest risk first.")
 
@@ -659,12 +680,12 @@ def page_queue(df_raw, val_prob, y_val):
         """)
 
 
-    all_scores = val_prob
-    y_arr      = np.array(y_val)
+    all_scores = test_prob
+    y_arr      = np.array(y_test)
 
     # Build display dataframe
     queue = pd.DataFrame({
-        "Risk Score":    val_prob,
+        "Risk Score":    test_prob,
         "Actual Fraud":  y_arr,
     }).reset_index(drop=True)
     queue["Rank"] = queue["Risk Score"].rank(ascending=False).astype(int)
@@ -674,7 +695,7 @@ def page_queue(df_raw, val_prob, y_val):
     queue["Bucket Icon"] = queue["Triage Bucket"].map(BUCKET_EMOJI)
 
     # Add raw claim fields for display
-    raw_reset = df_raw.iloc[y_val.index].reset_index(drop=True)
+    raw_reset = df_raw.iloc[y_test.index].reset_index(drop=True)
     for col in ["PolicyNumber", "Age", "BasePolicy", "VehicleCategory",
                 "Fault", "PoliceReportFiled", "WitnessPresent", "AgentType",
                 "Deductible", "AddressChange_Claim"]:
@@ -737,8 +758,8 @@ def page_queue(df_raw, val_prob, y_val):
 # PAGE 3 — CLAIM DETAIL
 # ══════════════════════════════════════════════════════════════
 
-def page_detail(df_raw, val_prob, y_val, shap_values, explainer,
-                feat_names, cat_cols, rag):
+def page_detail(df_raw, test_prob, y_test, shap_values, explainer,
+                feat_names, cat_cols, rag, X_test_t):
     st.title("🔎 Claim Detail")
 
     with st.expander("ℹ️", expanded=False):
@@ -754,21 +775,21 @@ def page_detail(df_raw, val_prob, y_val, shap_values, explainer,
         """)
 
 
-    all_scores = val_prob
-    sorted_idx = np.argsort(val_prob)[::-1]
+    all_scores = test_prob
+    sorted_idx = np.argsort(test_prob)[::-1]
 
     rank = st.session_state.get("selected_rank", 1)
     rank = st.number_input("Claim Rank", min_value=1,
-                            max_value=len(val_prob), value=rank, step=1)
+                            max_value=len(test_prob), value=rank, step=1)
     st.session_state["selected_rank"] = rank
 
     claim_pos  = sorted_idx[rank - 1]
-    risk_score = float(val_prob[claim_pos])
-    actual     = int(np.array(y_val)[claim_pos])
+    risk_score = float(test_prob[claim_pos])
+    actual     = int(np.array(y_test)[claim_pos])
     bucket     = assign_bucket(risk_score, all_scores=all_scores)
 
     # Raw claim data
-    raw_idx   = y_val.index[claim_pos]
+    raw_idx   = y_test.index[claim_pos]
     claim_row = df_raw.loc[raw_idx]
 
     # ── Header ────────────────────────────────────────────────
@@ -794,7 +815,7 @@ def page_detail(df_raw, val_prob, y_val, shap_values, explainer,
         f'<div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;'
         f'letter-spacing:0.06em;color:#6b7280;">Rank</div>'
         f'<div style="font-size:1.4rem;font-weight:700;color:#374151;">'
-        f'#{rank} of {len(val_prob)}</div></div>'
+        f'#{rank} of {len(test_prob)}</div></div>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -830,7 +851,8 @@ def page_detail(df_raw, val_prob, y_val, shap_values, explainer,
 
         st.markdown('<p class="section-label">Top Risk Drivers</p>', unsafe_allow_html=True)
         st.markdown("**Reason Codes**")
-        codes = make_reason_codes(shap_row, feat_names, cat_cols, top_n=5)
+        codes = make_reason_codes(shap_row, feat_names, cat_cols, top_n=5,
+                                  feature_values=row_values(X_test_t, claim_pos))
         for c in codes:
             css_class = "rc-high" if c["direction"] == "High risk" else "rc-low"
             icon = "⬆" if c["direction"] == "High risk" else "⬇"
@@ -839,7 +861,9 @@ def page_detail(df_raw, val_prob, y_val, shap_values, explainer,
                 f'<div class="rc-pill {css_class}">'
                 f'<span style="font-size:1rem;">{icon}</span>'
                 f'<span>{badge} {c["label"].split("] ", 1)[-1]}</span>'
-                f'<span style="margin-left:auto;font-size:0.78rem;opacity:0.7;">'
+                f'<span style="margin-left:auto;font-size:0.72rem;opacity:0.55;'
+                f'font-family:ui-monospace,monospace;">{c["technical"]}</span>'
+                f'<span style="margin-left:12px;font-size:0.78rem;opacity:0.7;">'
                 f'SHAP: {c["shap"]:+.4f}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
@@ -946,6 +970,16 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
         num_supps      = c12.selectbox("Number of Supplements",
                             list(NUM_SUPPLIMENTS_MAP.keys()))
 
+        c19, c20, c21 = st.columns(3)
+        sex            = c19.selectbox("Sex", ["Male", "Female"])
+        marital        = c20.selectbox("Marital Status",
+                            ["Single", "Married", "Widow", "Divorced"])
+        accident_area  = c21.selectbox("Accident Area", ["Urban", "Rural"])
+
+        c22, _, _ = st.columns(3)
+        age_vehicle    = c22.selectbox("Age of Vehicle",
+                            list(AGE_VEHICLE_MAP.keys()), index=2)
+
         st.markdown("### Timing")
         c13, c14, c15 = st.columns(3)
         month          = c13.selectbox("Accident Month", list(MONTH_MAP.keys()))
@@ -964,15 +998,28 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
     if not submitted:
         return
 
-    # Build a single-row DataFrame matching the raw dataset schema
+    # Build a single-row DataFrame matching the raw dataset schema.
+    # AgeOfPolicyHolder is DERIVED from the Age slider — hardcoding it meant an
+    # age-70 claim was scored with a policyholder band of "26 to 30".
+    # Year comes from config (training data is 1994-96; 2024 was out of range).
+    from config import LIVE_SCORING_YEAR
+    from feature_engineering import derive_age_band
+
+    ASSUMED = {                     # not exposed in the form — see caption below
+        "Make": "Honda", "RepNumber": 5, "DriverRating": 3,
+        "WeekOfMonth": 2, "WeekOfMonthClaimed": 2, "NumberOfCars": "1 vehicle",
+    }
+
     row = {
-        "WeekOfMonth": 2, "WeekOfMonthClaimed": 2,
-        "Age": age, "RepNumber": 5,
-        "Deductible": deductible, "DriverRating": 3, "Year": 2024,
+        "WeekOfMonth": ASSUMED["WeekOfMonth"],
+        "WeekOfMonthClaimed": ASSUMED["WeekOfMonthClaimed"],
+        "Age": age, "RepNumber": ASSUMED["RepNumber"],
+        "Deductible": deductible, "DriverRating": ASSUMED["DriverRating"],
+        "Year": LIVE_SCORING_YEAR,
         "Month": month, "DayOfWeek": dow,
-        "Make": "Honda", "AccidentArea": "Urban",
+        "Make": ASSUMED["Make"], "AccidentArea": accident_area,
         "DayOfWeekClaimed": dow_claimed, "MonthClaimed": month_claimed,
-        "Sex": "Male", "MaritalStatus": "Single",
+        "Sex": sex, "MaritalStatus": marital,
         "Fault": fault,
         "PolicyType": f"{vehicle_cat} - {base_policy}",
         "VehicleCategory": vehicle_cat,
@@ -980,14 +1027,14 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
         "Days_Policy_Accident": days_policy,
         "Days_Policy_Claim": days_claim,
         "PastNumberOfClaims": past_claims,
-        "AgeOfVehicle": "3 years",
-        "AgeOfPolicyHolder": "26 to 30",
+        "AgeOfVehicle": age_vehicle,
+        "AgeOfPolicyHolder": derive_age_band(age),
         "PoliceReportFiled": police_report,
         "WitnessPresent": witness,
         "AgentType": agent_type,
         "NumberOfSuppliments": num_supps,
         "AddressChange_Claim": address_change,
-        "NumberOfCars": "1 vehicle",
+        "NumberOfCars": ASSUMED["NumberOfCars"],
         "BasePolicy": base_policy,
         "FraudFound_P": 0,
         "PolicyNumber": 999999,
@@ -1001,11 +1048,23 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
     X_single = df_eng.drop(columns=["FraudFound_P", "PolicyNumber"] + cols_to_remove,
                             errors="ignore")
 
-    # Align columns to training set
-    for col in cat_cols + num_cols:
+    # Align columns to the training feature space. Missing categoricals must be
+    # filled with "Unknown" (the value the fitted imputer expects) — filling them
+    # with 0 would push an unseen numeric through the one-hot encoder.
+    for col in cat_cols:
+        if col not in X_single.columns:
+            X_single[col] = "Unknown"
+    for col in num_cols:
         if col not in X_single.columns:
             X_single[col] = 0
     X_single = X_single[cat_cols + num_cols]
+
+    st.caption(
+        "Assumed for fields not on this form — "
+        + ", ".join(f"{k}: {v}" for k, v in ASSUMED.items())
+        + f", Year: {LIVE_SCORING_YEAR}. "
+        "AgeOfPolicyHolder is derived from the Age slider."
+    )
 
     X_t       = preprocessor.transform(X_single)
     risk_score = float(model.predict_proba(X_t)[0, 1])
@@ -1076,7 +1135,8 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
     fig = build_waterfall(shap_row, feat_names, float(explainer.expected_value))
     st.plotly_chart(fig, use_container_width=True)
 
-    codes = make_reason_codes(shap_row, feat_names, cat_cols, top_n=5)
+    codes = make_reason_codes(shap_row, feat_names, cat_cols, top_n=5,
+                              feature_values=row_values(X_t, 0))
     st.markdown('<p class="section-label">Top Risk Drivers</p>', unsafe_allow_html=True)
     st.markdown("**Reason Codes**")
     for c in codes:
@@ -1087,7 +1147,9 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
             f'<div class="rc-pill {css_class}">'
             f'<span style="font-size:1rem;">{icon}</span>'
             f'<span>{badge} {c["label"].split("] ", 1)[-1]}</span>'
-            f'<span style="margin-left:auto;font-size:0.78rem;opacity:0.7;">'
+            f'<span style="margin-left:auto;font-size:0.72rem;opacity:0.55;'
+            f'font-family:ui-monospace,monospace;">{c["technical"]}</span>'
+            f'<span style="margin-left:12px;font-size:0.78rem;opacity:0.7;">'
             f'SHAP: {c["shap"]:+.4f}</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -1140,7 +1202,7 @@ def page_fairness(df_raw, test_prob, y_test):
         - **Fraud Rate** — the actual percentage of claims in that group that were genuinely fraudulent.
         - **False Positive Rate** — the percentage of legitimate claims in that group that were incorrectly flagged.
         - **Precision** — of the flagged claims in that group, how many were actually fraud.
-        - **Disparate Impact Ratio** — compares each group's flag rate to the most-flagged group. A ratio below **0.80 (the 80% rule)** is a potential legal concern under US insurance regulation.
+        - **Disparate Impact Ratio** — the *least*-flagged group's flag rate divided by this group's flag rate. The least-flagged group therefore scores 1.00, and a group falls below **0.80 (the 80% rule)** when it is flagged at more than 1.25× the least-flagged group's rate — a potential legal concern under US insurance regulation. Because being flagged means being investigated, the rule surfaces the *most*-flagged group here.
         - Groups with fewer than 30 claims are excluded — small samples produce unreliable ratios.
         - 🟢 Green = no concern. 🔴 Red = potential bias worth investigating.
         """)
@@ -1157,9 +1219,11 @@ def page_fairness(df_raw, test_prob, y_test):
     # ── Overall flag rates ────────────────────────────────────
     st.markdown("### What is Disparate Impact?")
     st.info(
-        f"The **80% rule**: if one group is flagged at less than "
-        f"{DISPARATE_IMPACT_THRESHOLD*100:.0f}% the rate of the most-flagged group, "
-        f"it may indicate bias. This is the standard used in US insurance regulation."
+        f"The **80% rule**: each group is scored as "
+        f"(least-flagged group's flag rate) ÷ (this group's flag rate). A score below "
+        f"{DISPARATE_IMPACT_THRESHOLD:.2f} means the group is flagged at more than "
+        f"{1/DISPARATE_IMPACT_THRESHOLD:.2f}× the least-flagged group's rate, which may "
+        f"indicate bias. This is the standard used in US insurance regulation."
     )
     st.caption(
         f"⚠️ Groups with fewer than {MIN_GROUP_SIZE} claims are excluded from the "
@@ -1170,25 +1234,41 @@ def page_fairness(df_raw, test_prob, y_test):
         st.markdown(f"---")
         st.markdown(f"### {attr}")
 
-        # Split into included and excluded groups
-        included = df[df["n"] >= MIN_GROUP_SIZE].copy()
-        excluded = df[df["n"] < MIN_GROUP_SIZE].copy()
+        # Split into included and excluded groups. The "age not recorded" bucket
+        # (rows with Age == 0, which is not a real age) is excluded alongside
+        # small groups — it is a data-quality artifact, not a demographic.
+        from fairness_analysis import AGE_UNKNOWN_LABEL
+        keep = (df["n"] >= MIN_GROUP_SIZE) & (df["group"] != AGE_UNKNOWN_LABEL)
+        included = df[keep].copy()
+        excluded = df[~keep].copy()
 
         if excluded.shape[0] > 0:
             excl_names = ", ".join(excluded["group"].tolist())
             st.caption(
-                f"Excluded from disparate impact (n < {MIN_GROUP_SIZE}): **{excl_names}**"
+                f"Excluded from disparate impact (n < {MIN_GROUP_SIZE}, or age not "
+                f"recorded): **{excl_names}**"
             )
 
-        # Recompute disparate impact only on included groups
+        # Recompute disparate impact on the included groups, using the
+        # least-flagged group WITH A NON-ZERO flag rate as the reference. A group
+        # that is never flagged (65+, n=48) cannot be a ratio denominator — using
+        # it drove every other group to 0.000 and flagged them all as "Concern".
         if not included.empty and included["flag_rate"].max() > 0:
-            min_flag = included["flag_rate"].min()
+            nonzero  = included.loc[included["flag_rate"] > 0, "flag_rate"]
+            min_flag = nonzero.min() if len(nonzero) else 0.0
             included["disparate_impact"] = included["flag_rate"].apply(
-                lambda x: round(min_flag / x, 4) if x > 0 else 1.0
+                lambda x: round(min_flag / x, 4) if (x > 0 and min_flag > 0) else None
             )
             included["di_flag"] = included["disparate_impact"].apply(
-                lambda x: "⚠️ Concern" if x < DISPARATE_IMPACT_THRESHOLD else "✅ OK"
+                lambda x: "n/a (never flagged)" if pd.isna(x)
+                else ("⚠️ Concern" if x < DISPARATE_IMPACT_THRESHOLD else "✅ OK")
             )
+            never_flagged = included.loc[included["flag_rate"] <= 0, "group"].tolist()
+            if never_flagged:
+                st.caption(
+                    f"⚪ Never flagged by the model, so no ratio is defined: "
+                    f"**{', '.join(never_flagged)}** — worth noting in its own right."
+                )
 
         # Color-code the DI flag column
         def highlight_di(row):
@@ -1222,10 +1302,16 @@ def page_fairness(df_raw, test_prob, y_test):
         if not included.empty:
             col_l, col_r = st.columns(2)
             with col_l:
+                # The colour scale is pinned to an absolute 0 -> 30% range.
+                # Auto-scaling stretched the palette across whatever spread the
+                # data happened to have, so Married (0.20095) rendered red and
+                # Single (0.2008) green — a 0.0002 difference shown as the full
+                # green-to-red span.
                 fig = px.bar(
                     included, x="group", y="flag_rate",
                     color="flag_rate",
                     color_continuous_scale=["#27ae60", "#f39c12", "#e74c3c"],
+                    range_color=[0.0, 0.30],
                     title=f"Flag Rate by {attr}",
                     labels={"flag_rate": "Flag Rate", "group": attr},
                 )
@@ -1267,14 +1353,33 @@ def page_fairness(df_raw, test_prob, y_test):
     )
     if any_concern:
         st.warning(
-            "⚠️ Some groups show potential disparate impact below the 80% rule. "
-            "Consider reviewing model features for proxy discrimination."
+            "⚠️ Some groups fall below the 80% rule — they are flagged for "
+            "investigation at more than 1.25× the rate of the least-flagged group."
         )
-        st.caption(
-            "This means at least one group is being flagged at less than 80% the rate of another group. "
-            "This does not necessarily mean the model is biased — it may reflect genuine fraud patterns in the data. "
-            "However, it is worth checking whether features like VehicleCategory or AgentType are acting as "
-            "indirect proxies for the flagged demographic attribute."
+        st.markdown(
+            """
+**What this does and does not mean.**
+
+A low ratio means a group carries a disproportionate share of the investigation
+burden. It is not automatically evidence of bias — it may track a real
+difference in fraud rates. On this test split, males commit fraud at **2.36×**
+the female rate, while the model flags them at **1.74×** the female rate, so the
+model's disparity is *smaller* than the disparity in the labels it learned from.
+
+**The thing to check here is not proxies — it is direct use.** `Sex`,
+`MaritalStatus` and `Age` are not inferred through correlated features; they are
+one-hot encoded straight into the feature matrix (`Sex_Female` ranks 25th of 90
+by mean |SHAP|, and age-derived features rank 13th, 14th and 17th). Searching
+for indirect proxies is the wrong first move when the protected attribute itself
+is an input.
+
+**What that implies.** Sex-based differentiation in insurance is restricted in
+several US states and prohibited across the EU, though rules for fraud
+*investigation* triage differ from rules for pricing — a compliance question,
+not a modelling one. The measurable next step is a leave-one-out test: retrain
+without `Sex` and compare PR-AUC against the change in disparate impact. Given
+its modest SHAP contribution, the accuracy cost is likely to be small.
+"""
         )
     else:
         st.success("✅ No disparate impact concerns detected across all demographic groups.")
@@ -1284,32 +1389,41 @@ def page_fairness(df_raw, test_prob, y_test):
 # PAGE 6 — MONITORING
 # ══════════════════════════════════════════════════════════════
 
-def page_monitoring(df_raw, test_prob, y_test):
+@st.cache_data(show_spinner="Running monitoring pipeline…")
+def _run_monitoring_cached(raw_test, test_prob, y_arr, raw_train):
+    """Cached so that re-rendering the page does not recompute 6 batches of KS
+    tests, and with write_outputs=False so viewing a page writes no CSVs."""
+    from monitoring import run_monitoring
+    return run_monitoring(raw_test, test_prob, y_arr,
+                          reference_df=raw_train, write_outputs=False)
+
+
+def page_monitoring(df_raw, test_prob, y_test, raw_train):
     st.title("📡 Model Monitoring")
     st.caption(
-        "Simulates production monitoring by splitting the test set into "
-        "time-ordered batches and checking for drift."
+        "Simulated production monitoring — the test set is split into "
+        "chronological batches and each is compared against the training data."
     )
 
     with st.expander("ℹ️", expanded=False):
         st.markdown("""
-        In production, new insurance claims arrive every week. Over time, fraud patterns change — new schemes emerge, claim types shift, and the model can become less accurate without anyone noticing.
-        This page simulates that by splitting the test set into **6 time-ordered batches** (like 6 weeks of claims) and checking each one.
+        In production, claims arrive continuously and fraud patterns shift, so a model can quietly lose accuracy. This page demonstrates the machinery you would use to catch that.
 
-        - **Fraud Rate per Batch** — if this spikes or drops significantly, it may mean fraud patterns are changing.
-        - **Avg Risk Score per Batch** — if the model's scores drift up or down over time, it may need retraining.
-        - **Drift Detection** — uses statistical tests (KS test) to check if the input feature distributions have shifted between batches. A drifted feature means the data the model sees today looks different from what it was trained on.
-        - **Drift Share** — the percentage of features that have drifted. Even 1 drifted feature out of 7 (14.3%) is worth investigating.
-        - **SIU Fraud Rate** — the fraud rate within the top 5% flagged claims per batch. If this drops, the model is losing its ability to concentrate fraud at the top.
-        - ✅ Stable = no drift detected. ⚠️ Drift = at least one feature has shifted significantly.
+        **What this is and is not.** All 15,420 claims come from a single static 1994–96 collection that was split randomly, so there is no real time axis along which this model could decay. The batches below are a *simulation* of claims arriving over time. The expected — and correct — result here is **stable**; the value is in showing the detection mechanics work, not in finding drift that cannot exist in a random split.
+
+        - **Reference** — each batch is compared against the **training split**, which is what "has the incoming data drifted from what the model was trained on?" actually means.
+        - **Batches** — the test set ordered by (Year, Month), then cut into 6 equal groups. Ordering by month alone would interleave 1994/1995/1996 within each batch.
+        - **Drift Detection** — a two-sample KS test per feature, with **Benjamini-Hochberg correction**. Without it, 5 batches × 7 features = 35 tests at p<0.05 produce ~1.75 false alarms by chance, which is why an uncorrected version flags drift almost every run.
+        - **Excluded features** — `Year` (the batching key, so testing it is circular) and `RepNumber` (a staff identifier, not a distribution).
+        - **Fraud Rate / Avg Risk Score per Batch** — sustained movement in either is the signal that would justify retraining.
+        - ✅ Stable = no feature drifted after correction. ⚠️ Drift = at least one survived it.
         """)
 
 
-    from monitoring import run_monitoring, get_drift_summary, N_BATCHES
+    from monitoring import get_drift_summary, N_BATCHES
 
-    with st.spinner("Running monitoring pipeline…"):
-        raw_test = df_raw.iloc[y_test.index].reset_index(drop=True)
-        results  = run_monitoring(raw_test, test_prob, np.array(y_test))
+    raw_test = df_raw.iloc[y_test.index].reset_index(drop=True)
+    results  = _run_monitoring_cached(raw_test, test_prob, np.array(y_test), raw_train)
 
     stats_df     = results["batch_stats"]
     drift_results = results["drift_results"]
@@ -1373,12 +1487,19 @@ def page_monitoring(df_raw, test_prob, y_test):
     # ── Drift table ───────────────────────────────────────────
     st.markdown("---")
     st.markdown("**Drift Detection Results**")
+    st.caption(
+        f"Reference: **{results['reference_kind']}** · "
+        f"Features tested: {', '.join(results['drift_features'])} · "
+        f"Excluded: {', '.join(results['excluded'])} · "
+        f"KS test with Benjamini-Hochberg correction at α=0.05"
+    )
     if drift_results:
         drift_df = pd.DataFrame([
             {
                 "Batch":            d["batch_label"],
                 "Dataset Drift":    "⚠️ Yes" if d["dataset_drift"] else "✅ No",
-                "Drifted Features": d["n_drifted_features"],
+                "Drifted (BH-adj)": d["n_drifted_features"],
+                "Drifted (raw p)":  d.get("n_drifted_uncorrected", "—"),
                 "Total Features":   d["n_features"],
                 "Drift Share":      f"{d['drift_share']:.1%}",
             }
@@ -1413,32 +1534,41 @@ def page_monitoring(df_raw, test_prob, y_test):
 # PAGE 7 — TEMPORAL ANALYSIS
 # ══════════════════════════════════════════════════════════════
 
+@st.cache_data(show_spinner="Running seasonality analysis…")
+def _run_temporal_cached(raw_test, test_prob, y_arr):
+    """Cached, and write_outputs=False so viewing the page writes no CSVs."""
+    from temporal_analysis import run_temporal_analysis
+    return run_temporal_analysis(raw_test, test_prob, y_arr, write_outputs=False)
+
+
 def page_temporal(df_raw, test_prob, y_test):
-    st.title("📅 Temporal Analysis")
+    st.title("📅 Seasonality Analysis")
     st.caption(
-        "Month-by-month model performance — shows how well the model "
-        "detects fraud across different time periods."
+        "Model performance by calendar month, pooled across 1994–1996 — "
+        "which months the model handles well, not change over time."
     )
 
     with st.expander("ℹ️", expanded=False):
-        st.markdown("""
-        Fraud is seasonal. Certain months see more staged accidents, more opportunistic claims, or different fraud patterns.
-        This page evaluates the model **separately for each month** to see where it performs well and where it struggles.
+        st.markdown(f"""
+        Fraud may be seasonal: certain months see more staged accidents or more opportunistic claims. This page evaluates the model **separately on each calendar month's claims**.
 
-        - **PR-AUC by Month** — the model's ability to rank fraud above non-fraud for that month's claims. Higher is better. Large variation across months suggests seasonal fraud patterns.
-        - **Fraud Rate by Month** — the actual percentage of claims that were fraudulent each month. Spikes indicate high-fraud periods.
-        - **Precision@5% by Month** — of the top 5% highest-risk claims that month, how many were actually fraud. A drop to 0 (like November) means the model struggled to concentrate fraud at the top that month.
-        - **Avg Risk Score by Month** — the model's average confidence level. A drop in average score may indicate the model is less certain in certain months.
-        - **Best/Worst Month** — shown in the KPI cards at the top. Useful for understanding when the model is most and least reliable.
-        - 🔵 Blue highlight in the table = best performing month. 🔴 Red highlight = worst performing month.
+        **Read this as seasonality, not decay.** Months are pooled across all three years in the dataset — "December" means every December from 1994 to 1996, not a point on a timeline. The dataset is one static historical collection split randomly, so it contains no chronological axis along which the model could degrade. Drift is covered on the Monitoring page.
+
+        **Sample sizes are small.** Each month holds roughly 130 test claims and between 3 and 13 fraud cases, and Precision@5% is computed over just 5–7 claims. Months with fewer than {5} fraud cases have their PR-AUC and Precision@5% **suppressed rather than plotted**, because a ranking metric built on 3 positives is noise. The `Fraud` column in the table shows what each number rests on.
+
+        - **PR-AUC by Month** — how well the model ranks fraud above non-fraud within that month.
+        - **Fraud Rate by Month** — the actual share of claims that were fraudulent.
+        - **Precision@5% by Month** — of that month's top 5% highest-risk claims, how many were fraud.
+        - **Avg Risk Score by Month** — the model's average output level.
+        - **Best/Worst Month** — computed only over months with a sufficient sample.
+        - 🔵 Blue = best scored month. 🔴 Red = worst scored month.
         """)
 
 
-    from temporal_analysis import run_temporal_analysis, get_temporal_summary
+    from temporal_analysis import get_temporal_summary
 
-    with st.spinner("Running temporal analysis…"):
-        raw_test   = df_raw.iloc[y_test.index].reset_index(drop=True)
-        df_metrics = run_temporal_analysis(raw_test, test_prob, np.array(y_test))
+    raw_test   = df_raw.iloc[y_test.index].reset_index(drop=True)
+    df_metrics = _run_temporal_cached(raw_test, test_prob, np.array(y_test))
 
     if df_metrics.empty:
         st.warning("Not enough data per month for temporal analysis.")
@@ -1447,12 +1577,25 @@ def page_temporal(df_raw, test_prob, y_test):
     summary = get_temporal_summary(df_metrics)
 
     # ── KPI row ───────────────────────────────────────────────
+    n_scored = summary.get("n_months_scored", 0)
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Months Analysed",  summary["n_months"])
-    c2.metric("Mean PR-AUC",      f"{summary['mean_pr_auc']:.4f}",
-              delta=f"± {summary['std_pr_auc']:.4f}")
-    c3.metric("Best Month",       f"{summary['best_month']} ({summary['best_pr_auc']:.4f})")
-    c4.metric("Worst Month",      f"{summary['worst_month']} ({summary['worst_pr_auc']:.4f})")
+    # delta_color="off" on both: these are captions, not improvements. Streamlit
+    # renders a delta as a green up-arrow by default, which made a sample-size
+    # caveat and a standard deviation both read as good news.
+    c1.metric("Months Analysed",  summary["n_months"],
+              delta=f"{n_scored} scored · {summary['n_months'] - n_scored} below "
+                    f"5 fraud cases",
+              delta_color="off")
+    if n_scored:
+        c2.metric("Mean PR-AUC",  f"{summary['mean_pr_auc']:.4f}",
+                  delta=f"± {summary['std_pr_auc']:.4f} across months",
+                  delta_color="off")
+        c3.metric("Best Month",   f"{summary['best_month']} ({summary['best_pr_auc']:.4f})")
+        c4.metric("Worst Month",  f"{summary['worst_month']} ({summary['worst_pr_auc']:.4f})")
+    else:
+        c2.metric("Mean PR-AUC", "—")
+        c3.metric("Best Month",  "—")
+        c4.metric("Worst Month", "—")
 
     st.markdown("---")
 
@@ -1536,10 +1679,15 @@ def page_temporal(df_raw, test_prob, y_test):
     # ── Monthly metrics table ─────────────────────────────────
     st.markdown("---")
     st.markdown("**Monthly Metrics Table**")
-    display_metrics = df_metrics.rename(columns={
+    st.caption(
+        "Blank PR-AUC / Precision@5% means that month had fewer than 5 fraud "
+        "cases — too few for a ranking metric to be meaningful."
+    )
+    display_metrics = df_metrics.drop(columns=["sufficient"], errors="ignore").rename(columns={
         "month":          "Month",
         "month_num":      "Month #",
         "n":              "Claims",
+        "n_fraud":        "Fraud",
         "fraud_rate":     "Fraud Rate",
         "pr_auc":         "PR-AUC",
         "roc_auc":        "ROC-AUC",
@@ -1555,7 +1703,9 @@ def page_temporal(df_raw, test_prob, y_test):
             "Precision@5%":   "{:.4f}",
             "Avg Risk Score": "{:.4f}",
             "SIU Fraud Rate": "{:.4f}",
-        }).highlight_max(
+        # na_rep so suppressed months render as an em dash rather than the
+        # literal string "None", which contradicted the caption above.
+        }, na_rep="—").highlight_max(
             subset=["PR-AUC", "Precision@5%"],
             color="#dbeafe",
         ).highlight_min(
@@ -1625,13 +1775,13 @@ def page_dataset_comparison():
     st.markdown('<p class="section-label">Key Comparative Insights</p>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Combined Raw Records", "573,631",
-              delta="15,420 auto + 558,211 Medicare")
+              delta="15,420 auto + 558,211 Medicare", delta_color="off")
     c2.metric("Auto Fraud Rate", "5.99%",
-              delta="15.7:1 imbalance ratio")
+              delta="15.7:1 imbalance ratio", delta_color="off")
     c3.metric("Medicare Fraud Rate", "9.35%",
-              delta="9.7:1 imbalance ratio")
+              delta="9.7:1 imbalance ratio", delta_color="off")
     c4.metric("Shared Best Metric", "PR-AUC",
-              delta="Both datasets imbalanced")
+              delta="Both datasets imbalanced", delta_color="off")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1742,7 +1892,7 @@ labels["Fraud"] = (
 | Property | Value |
 |---|---|
 | Rows (providers) | 5,410 |
-| Columns (features) | 17 |
+| Columns (features) | 22 |
 | Fraud cases | 506 (9.35%) |
 | Missing values | 0 (after fillna) |
 | Source files joined | 4 |
@@ -1768,17 +1918,30 @@ labels["Fraud"] = (
         m = med_results["metrics"]
 
         # ── KPI comparison ────────────────────────────────────
+        # Auto-side figures are read from the training artifacts rather than
+        # hardcoded. The enrichment comparison in particular used to pit the
+        # auto VALIDATION number (5.4x) against Medicare's TEST number (8.9x);
+        # both sides are now test-set.
+        with open(os.path.join(IMPROVEMENT, "model_metadata.json")) as f:
+            auto_meta = json.load(f)
+        auto_val_pr  = auto_meta["val_pr_auc"]
+        auto_test_pr = auto_meta["test_pr_auc"]
+        auto_enrich  = auto_meta.get("siu_enrichment_test")
+        if auto_enrich is None:   # metadata predates triage_summary.json
+            with open(os.path.join(IMPROVEMENT, "triage_summary.json")) as f:
+                auto_enrich = json.load(f)["test"]["buckets"]["SIU"]["enrichment"]
+
         st.markdown("**Performance vs. Automotive Insurance Model**")
         c1, c2, c3, c4, c5, c6 = st.columns(6)
-        c1.metric("Auto Val PR-AUC",      "0.3223")
+        c1.metric("Auto Val PR-AUC",      f"{auto_val_pr:.4f}")
         c2.metric("Medicare Val PR-AUC",  f"{m['val_pr_auc']:.4f}",
-                  delta=f"+{m['val_pr_auc']-0.3223:.4f} vs auto")
-        c3.metric("Auto Test PR-AUC",     "0.2443")
+                  delta=f"{m['val_pr_auc']-auto_val_pr:+.4f} vs auto")
+        c3.metric("Auto Test PR-AUC",     f"{auto_test_pr:.4f}")
         c4.metric("Medicare Test PR-AUC", f"{m['test_pr_auc']:.4f}",
-                  delta=f"+{m['test_pr_auc']-0.2443:.4f} vs auto")
-        c5.metric("Auto SIU Enrichment",  "5.4×")
-        c6.metric("Medicare SIU Enrichment", f"{m['siu_enrichment']:.1f}×",
-                  delta=f"+{m['siu_enrichment']-5.4:.1f}× vs auto")
+                  delta=f"{m['test_pr_auc']-auto_test_pr:+.4f} vs auto")
+        c5.metric("Auto SIU Enrichment (test)",  f"{auto_enrich:.1f}×")
+        c6.metric("Medicare SIU Enrichment (test)", f"{m['siu_enrichment']:.1f}×",
+                  delta=f"{m['siu_enrichment']-auto_enrich:+.1f}× vs auto")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1864,7 +2027,7 @@ def main():
         page = st.session_state.pop("page_override")
 
     if page == "📊 Summary Dashboard":
-        page_summary(metadata, val_prob, display_prob, display_y, shap_imp, model_comp)
+        page_summary(metadata, display_prob, display_y, shap_imp, model_comp)
 
     elif page == "📋 Review Queue":
         page_queue(data["df_raw"], display_prob, display_y)
@@ -1874,6 +2037,7 @@ def main():
             data["df_raw"], display_prob, display_y,
             shap_values, explainer,
             data["feat_names"], data["cat_cols"], rag,
+            data["X_test_t"],
         )
 
     elif page == "⚡ Live Scoring":
@@ -1887,9 +2051,13 @@ def main():
         page_fairness(data["df_raw"], display_prob, display_y)
 
     elif page == "📡 Monitoring":
-        page_monitoring(data["df_raw"], display_prob, display_y)
+        # Drift is measured against the TRAINING split — that is what "has the
+        # incoming data drifted from what the model was trained on?" means.
+        from data_pipeline import raw_rows_for
+        page_monitoring(data["df_raw"], display_prob, display_y,
+                        raw_rows_for(data, "train"))
 
-    elif page == "📅 Temporal Analysis":
+    elif page == "📅 Seasonality Analysis":
         page_temporal(data["df_raw"], display_prob, display_y)
 
     elif page == "🗂️ Dataset Comparison":

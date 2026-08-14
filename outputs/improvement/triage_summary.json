@@ -1,0 +1,77 @@
+{
+  "model": "XGBoost (Optuna)",
+  "validation": {
+    "split": "validation",
+    "n": 1542,
+    "base_fraud_rate": 0.0603,
+    "buckets": {
+      "SIU": {
+        "count": 77,
+        "fraud": 25,
+        "fraud_rate": 0.3247,
+        "enrichment": 5.38
+      },
+      "Manual Review": {
+        "count": 231,
+        "fraud": 37,
+        "fraud_rate": 0.1602,
+        "enrichment": 2.66
+      },
+      "Approve": {
+        "count": 1234,
+        "fraud": 31,
+        "fraud_rate": 0.0251,
+        "enrichment": 0.42
+      }
+    },
+    "roi": {
+      "fraud_caught": 62,
+      "savings_usd": 930000,
+      "costs_usd": 61600,
+      "net_benefit": 868400,
+      "roi_x": 15.1
+    },
+    "cost_assumptions": {
+      "avg_fraud_loss": 15000,
+      "siu_cost": 500,
+      "manual_cost": 100
+    }
+  },
+  "test": {
+    "split": "test",
+    "n": 1542,
+    "base_fraud_rate": 0.0597,
+    "buckets": {
+      "SIU": {
+        "count": 77,
+        "fraud": 21,
+        "fraud_rate": 0.2727,
+        "enrichment": 4.57
+      },
+      "Manual Review": {
+        "count": 231,
+        "fraud": 34,
+        "fraud_rate": 0.1472,
+        "enrichment": 2.47
+      },
+      "Approve": {
+        "count": 1234,
+        "fraud": 37,
+        "fraud_rate": 0.03,
+        "enrichment": 0.5
+      }
+    },
+    "roi": {
+      "fraud_caught": 55,
+      "savings_usd": 825000,
+      "costs_usd": 61600,
+      "net_benefit": 763400,
+      "roi_x": 13.39
+    },
+    "cost_assumptions": {
+      "avg_fraud_loss": 15000,
+      "siu_cost": 500,
+      "manual_cost": 100
+    }
+  }
+}

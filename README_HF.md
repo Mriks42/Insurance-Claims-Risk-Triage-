@@ -19,8 +19,8 @@ An end-to-end fraud detection system for automotive insurance claims.
 - SHAP explainability with per-claim reason codes
 - RAG-powered triage briefs (GPT-4o-mini or template fallback)
 - Fairness analysis across age, sex, marital status (80% disparate impact rule)
-- Model monitoring and drift detection
-- Temporal month-by-month performance analysis
+- Drift detection against the training distribution, with multiple-comparison correction
+- Per-month seasonality analysis with small-sample suppression
 - 8-page Streamlit dashboard with ℹ️ explanations on every page
 
 ## Pages
@@ -31,8 +31,8 @@ An end-to-end fraud detection system for automotive insurance claims.
 | 🔎 Claim Detail | Per-claim SHAP waterfall, reason codes, RAG triage brief |
 | ⚡ Live Scoring | Score a new claim in real time |
 | ⚖️ Fairness Analysis | Disparate impact across age, sex, marital status |
-| 📡 Monitoring | Batch drift detection across time-ordered claim batches |
-| 📅 Temporal Analysis | Month-by-month PR-AUC and fraud rate |
+| 📡 Monitoring | Batch drift vs. the training distribution (KS test, BH-corrected) |
+| 📅 Seasonality Analysis | Per-month PR-AUC and fraud rate, pooled across 1994–96 |
 | 🗂️ Dataset Comparison | Automotive vs. Medicare fraud — profiles, charts, methodology applicability |
 
 ## Dataset

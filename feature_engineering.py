@@ -60,6 +60,36 @@ AGE_POLICY_HOLDER_MAP = {
     "over 65": 70,
 }
 
+def derive_age_band(age):
+    """
+    Map a numeric age onto the AgeOfPolicyHolder band the raw dataset uses.
+
+    Needed by the live-scoring form, which collects Age as a slider but must
+    also supply AgeOfPolicyHolder. Hardcoding a band there meant an age-70 claim
+    was scored with a policyholder band of "26 to 30" — two contradictory
+    signals fed to the model for the same person.
+
+    Returned strings are exactly the keys of AGE_POLICY_HOLDER_MAP.
+    """
+    if age <= 17:
+        return "16 to 17"
+    if age <= 20:
+        return "18 to 20"
+    if age <= 25:
+        return "21 to 25"
+    if age <= 30:
+        return "26 to 30"
+    if age <= 35:
+        return "31 to 35"
+    if age <= 40:
+        return "36 to 40"
+    if age <= 50:
+        return "41 to 50"
+    if age <= 65:
+        return "51 to 65"
+    return "over 65"
+
+
 NUM_SUPPLIMENTS_MAP = {
     "none": 0,
     "1 to 2": 1.5,
@@ -97,6 +127,10 @@ MONTH_MAP = {
     "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
     "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
 }
+
+# Deductible value at/above which a claim counts as "high deductible".
+# Constant rather than a data-derived quantile — see engineer_features().
+HIGH_DEDUCTIBLE_THRESHOLD = 400
 
 # Day of week → numeric (0=Monday)
 DOW_MAP = {
@@ -171,8 +205,18 @@ def engineer_features(df):
     # External agent
     df["ExternalAgent"] = (df["AgentType"] == "External").astype(int)
 
-    # High deductible (top quartile)
-    df["HighDeductible"] = (df["Deductible"] >= df["Deductible"].quantile(0.75)).astype(int)
+    # High deductible.
+    # This threshold used to be computed as df["Deductible"].quantile(0.75) over
+    # whatever frame was passed in — i.e. fitted on the full dataset including the
+    # test rows, and different for a single-claim frame in the live-scoring path.
+    # It is pinned to the constant that expression produced on the full training
+    # data (400) so the feature is split-independent and identical for one claim
+    # or 15,420 of them.
+    # NOTE: Deductible is 400 for 14,838 of 15,420 rows, so this flag is ~1 for
+    # 99.9% of claims and carries almost no signal. Raising it to >= 500 (3.7% of
+    # claims) is the sensible fix, but that changes the feature space and requires
+    # retraining, so it is left for the next training run.
+    df["HighDeductible"] = (df["Deductible"] >= HIGH_DEDUCTIBLE_THRESHOLD).astype(int)
 
     # Young driver
     df["YoungDriver"] = (df["Age"] <= 25).astype(int)
@@ -264,6 +308,111 @@ def engineer_features(df):
     )
 
     return df
+
+
+# ============================================================
+# Plain-English feature labels
+# ============================================================
+# Reason codes are read by claims investigators, not by the people who wrote
+# the feature engineering. "Age_x_Deductible" and "AddressChange_Claim_Num" are
+# internal names; these are what they mean. Anything missing falls back to a
+# de-camel-cased version of the raw name, so a new feature degrades to readable
+# rather than to a KeyError.
+FEATURE_LABELS = {
+    # ── ordinal encodings ──────────────────────────────────
+    "Days_Policy_Accident_Num": "days from policy start to accident",
+    "Days_Policy_Claim_Num":    "days from policy start to claim",
+    "PastNumberOfClaims_Num":   "number of past claims",
+    "AgeOfVehicle_Num":         "vehicle age",
+    "AgeOfPolicyHolder_Num":    "policyholder age band",
+    "NumberOfSuppliments_Num":  "number of supplements claimed",
+    "NumberOfCars_Num":         "number of vehicles on the policy",
+    "AddressChange_Claim_Num":  "time since the last address change",
+    "VehiclePrice_Num":         "vehicle price",
+    "Month_Num":                "month of accident",
+    "MonthClaimed_Num":         "month claim was filed",
+    "DayOfWeek_Num":            "day of week of accident",
+    "DayOfWeekClaimed_Num":     "day of week claim was filed",
+    # ── timing ─────────────────────────────────────────────
+    "WeekGap":                  "weeks between accident and claim",
+    "MonthGap":                 "months between accident and claim",
+    "SameDayOfWeek":            "accident and claim fell on the same weekday",
+    "WeekendAccident":          "accident happened at the weekend",
+    "WeekendClaim":             "claim filed at the weekend",
+    # ── risk indicators ────────────────────────────────────
+    "NoPoliceReport":           "no police report filed",
+    "NoWitness":                "no witness present",
+    "NoReportNoWitness":        "neither a police report nor a witness",
+    "PolicyHolderFault":        "policyholder was at fault",
+    "ExternalAgent":            "claim handled by an external agent",
+    "HighDeductible":           "high deductible",
+    "YoungDriver":              "driver aged 25 or under",
+    "HasPastClaims":            "has prior claims",
+    "RecentAddressChange":      "address changed within the past year",
+    # ── interactions ───────────────────────────────────────
+    "Age_x_Deductible":         "age combined with deductible",
+    "Fault_NoPolice":           "at fault with no police report",
+    "PriceToDeductible":        "vehicle price relative to deductible",
+    "Age_x_PastClaims":         "age combined with prior claim count",
+    "Cars_x_Suppliments":       "vehicle count combined with supplements",
+    "PolicyAge_x_ClaimDelay":   "policy age combined with claim delay",
+    # ── guideline-grounded flags ───────────────────────────
+    "Liability_NoPolice":       "liability-only cover with no police report",
+    "HighValue_Liability":      "high-value vehicle on liability-only cover",
+    "Sport_YoungDriver":        "sports vehicle with a driver aged 25 or under",
+    "VeryEarlyClaimFlag":       "accident within days of the policy starting",
+    "EarlyClaimFlag":           "accident within the first week of cover",
+    "HighSupplements":          "three or more supplements claimed",
+    "ExternalAgent_NoPolice":   "external agent with no police report",
+    "RiskFlagCount":            "total number of risk flags raised",
+    # ── raw columns kept by the model ──────────────────────
+    "Age":                      "policyholder age",
+    "Deductible":               "deductible amount",
+    "DriverRating":             "driver rating",
+    "RepNumber":                "claims representative",
+    "Year":                     "policy year",
+    "WeekOfMonth":              "week of month of accident",
+    "WeekOfMonthClaimed":       "week of month claim was filed",
+    # ── categorical columns (one-hot prefixes) ─────────────
+    "BasePolicy":               "base policy",
+    "PolicyType":               "policy type",
+    "VehicleCategory":          "vehicle category",
+    "Make":                     "vehicle make",
+    "AccidentArea":             "accident area",
+    "Sex":                      "sex",
+    "MaritalStatus":            "marital status",
+}
+
+
+def _prettify(name):
+    """Fallback label: split underscores and camelCase into readable words."""
+    import re
+    text = name.replace("_x_", " x ").replace("_", " ")
+    text = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text)
+    return text.lower().strip()
+
+
+def humanize_feature(feature_name, cat_cols=None, feature_value=None):
+    """
+    Turn a model feature name into something a claims investigator can read.
+
+    One-hot columns are resolved against the claim's own value, so a dummy that
+    is 0 reads "base policy is not Liability" rather than asserting the claim is
+    Liability. Pass feature_value=None to keep the older neutral phrasing.
+    """
+    if cat_cols:
+        for col in sorted(cat_cols, key=len, reverse=True):
+            prefix = col + "_"
+            if feature_name.startswith(prefix):
+                level = feature_name[len(prefix):]
+                label = FEATURE_LABELS.get(col, _prettify(col))
+                if feature_value is None:
+                    return f"{label} = '{level}'"
+                if float(feature_value) > 0.5:
+                    return f"{label} is {level}"
+                return f"{label} is not {level}"
+
+    return FEATURE_LABELS.get(feature_name, _prettify(feature_name))
 
 
 def _month_gap(m1, m2):

@@ -1,15 +1,22 @@
 """
-Temporal Analysis Module
-=========================
-Simulates how model performance changes over time by splitting
-the dataset by Month column and evaluating the model on each
-month's claims independently.
+Seasonality Analysis Module
+============================
+Evaluates the model separately on each calendar month's claims.
+
+This is a SEASONALITY view, not model decay over time. Claims are grouped by
+month-of-year and POOLED ACROSS 1994-1996 — December here means every December
+in the dataset, not a point on a timeline. The dataset is a single static
+historical collection split randomly, so there is no chronological axis along
+which this model could decay; monitoring.py covers the drift question.
+
+Month-level samples are small (~130 claims and 3-13 fraud cases per month in the
+test split), so ranking metrics are suppressed for months with fewer than
+MIN_FRAUD_FOR_METRICS fraud cases.
 
 Shows:
-- PR-AUC per month
+- PR-AUC per month (where the sample supports it)
 - Fraud rate per month
-- Risk score distribution shift
-- Model decay visualization
+- Risk score distribution by month
 
 Usage:
     python temporal_analysis.py
@@ -31,6 +38,10 @@ from config import OUTPUTS_DIR, PCT_SIU, PCT_MANUAL
 
 TEMPORAL_DIR = os.path.join(OUTPUTS_DIR, "temporal")
 os.makedirs(TEMPORAL_DIR, exist_ok=True)
+
+# Minimum fraud cases in a month before ranking metrics (PR-AUC, Precision@5%)
+# are considered meaningful. Below this they are reported as None.
+MIN_FRAUD_FOR_METRICS = 5
 
 MONTH_ORDER = {
     "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4,
@@ -98,13 +109,25 @@ def _split_by_order(df, n_splits=12):
 # Per-month metrics
 # ============================================================
 def month_metrics(month_data):
-    """Compute performance metrics for a single month."""
+    """
+    Compute performance metrics for a single month.
+
+    Months with fewer than MIN_FRAUD_FOR_METRICS fraud cases return the row with
+    pr_auc / precision_5pct set to None rather than a number. In the test split
+    the smallest months hold only 3-4 fraud cases out of ~130 claims, and
+    Precision@5% is computed over k=5-7 claims — a PR-AUC on 3 positives is
+    noise, and plotting it as if it were a seasonal signal invites the wrong
+    conclusion. The row is still returned so the sample size stays visible.
+    """
     scores = month_data["risk_scores"]
     y      = month_data["y_true"]
     n      = len(y)
 
     if n < 10 or y.sum() == 0:
         return None
+
+    n_fraud    = int(y.sum())
+    sufficient = n_fraud >= MIN_FRAUD_FOR_METRICS
 
     # PR-AUC and ROC-AUC
     try:
@@ -131,10 +154,12 @@ def month_metrics(month_data):
         "month":          month_data["month"],
         "month_num":      month_data["month_num"],
         "n":              n,
+        "n_fraud":        n_fraud,
+        "sufficient":     sufficient,
         "fraud_rate":     round(float(y.mean()), 4),
-        "pr_auc":         round(pr_auc, 4),
-        "roc_auc":        round(roc_auc, 4),
-        "precision_5pct": round(prec_5, 4),
+        "pr_auc":         round(pr_auc, 4)  if sufficient else None,
+        "roc_auc":        round(roc_auc, 4) if sufficient else None,
+        "precision_5pct": round(prec_5, 4)  if sufficient else None,
         "avg_risk_score": round(float(scores.mean()), 4),
         "siu_fraud_rate": round(siu_fraud_rate, 4),
     }
@@ -143,14 +168,18 @@ def month_metrics(month_data):
 # ============================================================
 # Full temporal analysis
 # ============================================================
-def run_temporal_analysis(df_raw, risk_scores, y_true):
+def run_temporal_analysis(df_raw, risk_scores, y_true, write_outputs=True):
     """
-    Run month-by-month performance analysis.
+    Run per-month (seasonality) performance analysis.
+
+    Args:
+        write_outputs: Write the metrics CSV. False when called from the
+                       dashboard, so rendering a page has no side effects.
 
     Returns:
         DataFrame of monthly metrics
     """
-    print("Running temporal analysis...")
+    print("Running seasonality analysis...")
 
     months = split_by_month(df_raw, risk_scores, y_true)
     print(f"  Found {len(months)} months of data")
@@ -160,14 +189,20 @@ def run_temporal_analysis(df_raw, risk_scores, y_true):
         metrics = month_metrics(m)
         if metrics:
             rows.append(metrics)
-            print(f"  {metrics['month']:>3}: n={metrics['n']:>4} | "
-                  f"fraud={metrics['fraud_rate']:.3f} | "
-                  f"PR-AUC={metrics['pr_auc']:.4f} | "
-                  f"Prec@5%={metrics['precision_5pct']:.4f}")
+            if metrics["sufficient"]:
+                print(f"  {metrics['month']:>3}: n={metrics['n']:>4} "
+                      f"fraud={metrics['n_fraud']:>3} | "
+                      f"PR-AUC={metrics['pr_auc']:.4f} | "
+                      f"Prec@5%={metrics['precision_5pct']:.4f}")
+            else:
+                print(f"  {metrics['month']:>3}: n={metrics['n']:>4} "
+                      f"fraud={metrics['n_fraud']:>3} | metrics suppressed "
+                      f"(< {MIN_FRAUD_FOR_METRICS} fraud cases)")
 
     df_metrics = pd.DataFrame(rows).sort_values("month_num").reset_index(drop=True)
-    df_metrics.to_csv(os.path.join(TEMPORAL_DIR, "monthly_metrics.csv"), index=False)
-    print(f"\n  Saved: {os.path.join(TEMPORAL_DIR, 'monthly_metrics.csv')}")
+    if write_outputs:
+        df_metrics.to_csv(os.path.join(TEMPORAL_DIR, "monthly_metrics.csv"), index=False)
+        print(f"\n  Saved: {os.path.join(TEMPORAL_DIR, 'monthly_metrics.csv')}")
 
     return df_metrics
 
@@ -245,21 +280,37 @@ def plot_temporal_charts(df_metrics, save_dir=TEMPORAL_DIR):
 
 
 def get_temporal_summary(df_metrics):
-    """Return a summary dict for dashboard display."""
+    """
+    Return a summary dict for dashboard display.
+
+    Best/worst month are taken only from months with enough fraud cases for the
+    ranking metric to mean anything — otherwise the "worst month" is simply
+    whichever small month happened to draw an unlucky handful of claims.
+    """
     if df_metrics.empty:
         return {}
 
-    best_month  = df_metrics.loc[df_metrics["pr_auc"].idxmax(), "month"]
-    worst_month = df_metrics.loc[df_metrics["pr_auc"].idxmin(), "month"]
+    scored = df_metrics[df_metrics["pr_auc"].notna()]
+    if scored.empty:
+        return {
+            "n_months":        len(df_metrics),
+            "n_months_scored": 0,
+            "mean_fraud_rate": round(float(df_metrics["fraud_rate"].mean()), 4),
+            "fraud_rate_std":  round(float(df_metrics["fraud_rate"].std()), 4),
+        }
+
+    best_month  = scored.loc[scored["pr_auc"].idxmax(), "month"]
+    worst_month = scored.loc[scored["pr_auc"].idxmin(), "month"]
 
     return {
         "n_months":        len(df_metrics),
-        "mean_pr_auc":     round(float(df_metrics["pr_auc"].mean()), 4),
-        "std_pr_auc":      round(float(df_metrics["pr_auc"].std()), 4),
+        "n_months_scored": len(scored),
+        "mean_pr_auc":     round(float(scored["pr_auc"].mean()), 4),
+        "std_pr_auc":      round(float(scored["pr_auc"].std()), 4),
         "best_month":      best_month,
-        "best_pr_auc":     round(float(df_metrics["pr_auc"].max()), 4),
+        "best_pr_auc":     round(float(scored["pr_auc"].max()), 4),
         "worst_month":     worst_month,
-        "worst_pr_auc":    round(float(df_metrics["pr_auc"].min()), 4),
+        "worst_pr_auc":    round(float(scored["pr_auc"].min()), 4),
         "mean_fraud_rate": round(float(df_metrics["fraud_rate"].mean()), 4),
         "fraud_rate_std":  round(float(df_metrics["fraud_rate"].std()), 4),
     }
@@ -273,51 +324,15 @@ if __name__ == "__main__":
     print("Temporal Analysis")
     print("=" * 60)
 
-    import joblib
-    from config import DATA_PATH, TARGET, COLS_TO_DROP, RANDOM_STATE
-    from feature_engineering import engineer_features, REPLACED_CATEGORICALS
-    from sklearn.model_selection import train_test_split
-    from sklearn.compose import ColumnTransformer
-    from sklearn.pipeline import Pipeline
-    from sklearn.impute import SimpleImputer
-    from sklearn.preprocessing import OneHotEncoder, StandardScaler
+    from data_pipeline import build_model_dataset, load_best_model, raw_rows_for
 
-    df_raw = pd.read_csv(DATA_PATH)
-    df_eng = engineer_features(df_raw)
+    data  = build_model_dataset()
+    model = load_best_model()
 
-    X = df_eng.drop(columns=[TARGET] + COLS_TO_DROP)
-    y = df_eng[TARGET]
-    cols_to_remove = [c for c in REPLACED_CATEGORICALS if c in X.columns]
-    X_xgb = X.drop(columns=cols_to_remove)
+    risk_scores = model.predict_proba(data["X_test_t"])[:, 1]
+    raw_test    = raw_rows_for(data, "test")
 
-    X_train, X_temp, y_train, y_temp = train_test_split(
-        X_xgb, y, test_size=0.20, random_state=RANDOM_STATE, stratify=y
-    )
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_temp, y_temp, test_size=0.50, random_state=RANDOM_STATE, stratify=y_temp
-    )
-
-    cat_cols = X_train.select_dtypes(include=["object"]).columns.tolist()
-    num_cols = X_train.select_dtypes(include=[np.number]).columns.tolist()
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ("num", Pipeline([("imp", SimpleImputer(strategy="median")),
-                              ("sc", StandardScaler())]), num_cols),
-            ("cat", Pipeline([("imp", SimpleImputer(strategy="constant",
-                                                     fill_value="Unknown")),
-                              ("ohe", OneHotEncoder(handle_unknown="ignore"))]), cat_cols),
-        ], remainder="drop"
-    )
-    preprocessor.fit(X_train)
-    X_test_t = preprocessor.transform(X_test)
-
-    model = joblib.load(
-        os.path.join(OUTPUTS_DIR, "improvement", "best_model_improved.joblib")
-    )
-    risk_scores = model.predict_proba(X_test_t)[:, 1]
-    raw_test    = df_raw.iloc[y_test.index].reset_index(drop=True)
-
-    df_metrics = run_temporal_analysis(raw_test, risk_scores, y_test.values)
+    df_metrics = run_temporal_analysis(raw_test, risk_scores, data["y_test"].values)
     plot_temporal_charts(df_metrics)
 
     summary = get_temporal_summary(df_metrics)

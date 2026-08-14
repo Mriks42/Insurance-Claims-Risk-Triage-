@@ -180,13 +180,49 @@ class TestReasonCodes:
         assert codes[0]["direction"] == "Low risk"
 
     def test_ohe_decoding(self):
+        """Label is plain English for investigators; the raw feature name is
+        kept in `technical` so a reason code stays auditable to the model."""
         from app import make_reason_codes
         shap_row   = np.array([0.5, 0.1])
         feat_names = ["BasePolicy_Liability", "Age"]
         cat_cols   = ["BasePolicy"]
         codes = make_reason_codes(shap_row, feat_names, cat_cols, top_n=1)
-        assert "BasePolicy" in codes[0]["label"]
+        assert "base policy" in codes[0]["label"]
         assert "Liability" in codes[0]["label"]
+        assert codes[0]["technical"] == "BasePolicy_Liability"
+
+    def test_ohe_present_reads_as_is(self):
+        from app import make_reason_codes
+        codes = make_reason_codes(
+            np.array([0.5, 0.1]), ["BasePolicy_Liability", "Age"], ["BasePolicy"],
+            top_n=1, feature_values=np.array([1.0, 0.0]),
+        )
+        assert "is Liability" in codes[0]["label"]
+        assert "not" not in codes[0]["label"]
+
+    def test_ohe_absent_reads_as_is_not(self):
+        """A dummy of 0 with a large SHAP value means the claim is NOT that
+        category — asserting it IS contradicts the claim's own attributes."""
+        from app import make_reason_codes
+        codes = make_reason_codes(
+            np.array([0.5, 0.1]), ["BasePolicy_Liability", "Age"], ["BasePolicy"],
+            top_n=1, feature_values=np.array([0.0, 0.0]),
+        )
+        assert "is not Liability" in codes[0]["label"]
+
+    def test_engineered_feature_gets_plain_english(self):
+        from app import make_reason_codes
+        codes = make_reason_codes(
+            np.array([1.7]), ["AddressChange_Claim_Num"], [], top_n=1,
+        )
+        assert "address change" in codes[0]["label"].lower()
+        assert "AddressChange_Claim_Num" == codes[0]["technical"]
+
+    def test_unknown_feature_degrades_readably(self):
+        """A feature with no label must not raise — it prettifies instead."""
+        from app import make_reason_codes
+        codes = make_reason_codes(np.array([0.4]), ["SomeNewFeature_x_Thing"], [], top_n=1)
+        assert "some new feature" in codes[0]["label"]
 
 
 # ============================================================

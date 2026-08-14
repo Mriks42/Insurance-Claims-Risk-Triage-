@@ -4,6 +4,23 @@ FSE 570 Capstone - Team Connecticut
 """
 
 import os
+import sys
+
+# ──────────────────────────────────────────────
+# Console encoding
+# ──────────────────────────────────────────────
+# Several modules print status lines containing emoji (⚠️ DRIFT / ✅ Stable,
+# disparate-impact flags, validation ticks). On Windows the default console
+# codepage is cp1252, which cannot encode them, so `python monitoring.py` — a
+# command the README tells users to run — died with UnicodeEncodeError before
+# printing a single result. Every module imports config, so forcing UTF-8 here
+# fixes all of them at once. Wrapped because stdout is not always reconfigurable
+# (pytest capture, some CI runners).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError, OSError):
+        pass
 
 # ──────────────────────────────────────────────
 # Paths
@@ -28,6 +45,12 @@ for d in [OUTPUTS_DIR, EDA_DIR, METRICS_DIR, PLOTS_DIR, SHAP_DIR, MODELS_DIR]:
 TARGET = "FraudFound_P"
 RANDOM_STATE = 42
 
+# Split sizes — 80/20, then the 20% is halved into val/test → 80/10/10.
+# Consumed by data_pipeline.build_model_dataset(), which is the single place
+# the split is performed.
+TEST_SIZE = 0.20        # first split: hold out 20%
+VAL_SIZE  = 0.50        # second split: half of that 20% becomes the test set
+
 # Columns to DROP before modeling (identifiers / leakage risk).
 # PolicyNumber has 15,420 unique values across 15,420 rows — it is
 # essentially a row ID. The notebook's own integrity check (Cell 13)
@@ -35,6 +58,13 @@ RANDOM_STATE = 42
 # memorize specific policy numbers from the training set, inflating
 # metrics artificially while degrading real-world generalization.
 COLS_TO_DROP = ["PolicyNumber"]
+
+# Year stamped on claims submitted through the live-scoring form.
+# The training data spans 1994-1996 and `Year` is a model feature, so the old
+# hardcoded 2024 fed the model a value it never saw during training. Trees clamp
+# out-of-range values to the last split, but the honest input is the most recent
+# year the model was actually trained on.
+LIVE_SCORING_YEAR = 1996
 
 # ──────────────────────────────────────────────
 # Triage settings

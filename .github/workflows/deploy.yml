@@ -22,7 +22,27 @@ on:
   workflow_dispatch:    # allows manual trigger from GitHub UI
 
 jobs:
+  # Gate: the deploy job below will not start unless this passes.
+  # Without it, tests.yml and this workflow would run independently and a
+  # red test suite would still ship to the Space.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        # Mirrors tests.yml exactly — keep the two invocations identical so the
+        # gate can never disagree with the badge.
+        run: pytest tests/ --tb=short -q
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -59,14 +79,21 @@ jobs:
               folder_path=".",
               repo_id=repo_id,
               repo_type="space",
+              # NOTE: upload_folder only adds/updates — it never deletes files
+              # already in the Space. Anything ignored here must be put in the
+              # Space by hand once, or a freshly created Space will crash on
+              # startup. fraud_oracle.csv is the one file in that category: it
+              # is gitignored (Kaggle TOS), so CI cannot ship it. Upload it via
+              # the Space's Files tab after creating the Space.
+              # best_model_improved.joblib is ~1 MB and IS committed, so it is
+              # deliberately NOT ignored — the app cannot start without it.
               ignore_patterns=[
                   ".git*",
                   "__pycache__",
                   "*.pyc",
                   ".env",
-                  "fraud_oracle.csv",   # dataset not uploaded (too large / Kaggle TOS)
-                  "outputs/models/*",
-                  "outputs/improvement/*.joblib",
+                  "fraud_oracle.csv",   # gitignored; upload to the Space manually once
+                  "outputs/models/*",   # superseded by outputs/improvement/
                   "mlruns/",
                   "tests/",
               ],

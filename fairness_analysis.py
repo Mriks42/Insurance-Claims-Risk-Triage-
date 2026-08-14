@@ -15,7 +15,8 @@ Metrics per group:
 - Fraud rate (actual fraud % in group)
 - False positive rate (flagged but not fraud)
 - Precision (flagged and actually fraud)
-- Disparate impact ratio (vs. majority group)
+- Disparate impact ratio (least-flagged group's rate / this group's rate;
+  see group_metrics() for why the comparison runs in that direction)
 
 Usage:
     python fairness_analysis.py
@@ -44,11 +45,27 @@ DISPARATE_IMPACT_THRESHOLD = 0.80
 # ============================================================
 # Age group binning
 # ============================================================
+AGE_UNKNOWN_LABEL = "Unknown (age not recorded)"
+
+
 def bin_age(age_series):
-    """Bin continuous age into groups."""
+    """
+    Bin continuous age into groups.
+
+    320 rows in fraud_oracle.csv carry Age == 0, which is not a real age — the
+    minimum genuine value is 16. Those rows fall outside the (0, 25] bin, so
+    pd.cut returns NaN and the dashboard used to render a demographic group
+    literally labelled "nan" (n=34 on the test split). They are now labelled
+    explicitly and excluded from the disparate impact calculation, the same way
+    small groups are.
+
+    Note this affects reporting only. Age is left untouched in the model's
+    feature path — changing it would alter the trained feature space.
+    """
     bins   = [0, 25, 35, 50, 65, 120]
     labels = ["16-25", "26-35", "36-50", "51-65", "65+"]
-    return pd.cut(age_series, bins=bins, labels=labels, right=True)
+    binned = pd.cut(age_series, bins=bins, labels=labels, right=True)
+    return binned.cat.add_categories([AGE_UNKNOWN_LABEL]).fillna(AGE_UNKNOWN_LABEL)
 
 
 # ============================================================
@@ -94,14 +111,39 @@ def group_metrics(df, group_col, score_col="risk_score",
 
     result = pd.DataFrame(rows)
 
-    # Disparate impact ratio (relative to group with lowest flag rate)
+    # Disparate impact ratio.
+    #
+    #   DI(group) = (lowest flag rate across groups) / (this group's flag rate)
+    #
+    # So the LEAST-flagged group scores 1.0, and a group scores below 0.80 when
+    # it is flagged at more than 1.25x the least-flagged group's rate. Being
+    # flagged here is a burden (investigation), not a benefit, so the group the
+    # rule surfaces is the most-flagged one — which is the opposite of the
+    # classic hiring-selection framing of the 80% rule.
     if len(result) > 0:
-        min_flag = result["flag_rate"].min()
-        result["disparate_impact"] = result["flag_rate"].apply(
-            lambda x: round(min_flag / x, 4) if x > 0 else 1.0
-        )
+        # The reference must be the least-flagged group WITH A NON-ZERO flag
+        # rate. On the test split the 65+ group (n=48) is never flagged at all,
+        # so a plain .min() made the reference 0.0 and every other group scored
+        # 0/x = 0.000 — the entire column read "Concern" and carried no
+        # information. A group that is never flagged cannot serve as a ratio
+        # denominator; it is reported separately instead.
+        nonzero = result.loc[result["flag_rate"] > 0, "flag_rate"]
+        min_flag = nonzero.min() if len(nonzero) else 0.0
+
+        def _di(x):
+            if x <= 0:
+                return None          # never flagged — ratio undefined
+            if min_flag <= 0:
+                return None          # no valid reference group
+            return round(min_flag / x, 4)
+
+        result["disparate_impact"] = result["flag_rate"].apply(_di)
+        # pd.isna, not `is None`: assigning None into a float column stores NaN,
+        # so an identity check silently falls through to the "OK" branch and
+        # labels a never-flagged group as passing.
         result["di_flag"] = result["disparate_impact"].apply(
-            lambda x: "⚠️ Concern" if x < DISPARATE_IMPACT_THRESHOLD else "✅ OK"
+            lambda x: "n/a (never flagged)" if pd.isna(x)
+            else ("⚠️ Concern" if x < DISPARATE_IMPACT_THRESHOLD else "✅ OK")
         )
 
     return result
@@ -208,15 +250,23 @@ def plot_disparate_impact(reports, save_dir=FAIRNESS_DIR):
         if df.empty or "disparate_impact" not in df.columns:
             continue
 
+        # Groups with no defined ratio (never flagged) are dropped rather than
+        # drawn as an empty bar labelled "nan"; they are named in the subtitle.
+        undefined = df.loc[df["disparate_impact"].isna(), "group"].tolist()
+        df = df[df["disparate_impact"].notna()]
+        if df.empty:
+            continue
+
         fig, ax = plt.subplots(figsize=(8, 5))
         colors = ["#e74c3c" if di < DISPARATE_IMPACT_THRESHOLD else "#27ae60"
                   for di in df["disparate_impact"]]
         bars = ax.bar(df["group"], df["disparate_impact"], color=colors, alpha=0.85)
         ax.axhline(y=DISPARATE_IMPACT_THRESHOLD, color="black", linestyle="--",
                    linewidth=1.5, label=f"80% rule threshold ({DISPARATE_IMPACT_THRESHOLD})")
-        ax.set_title(f"Disparate Impact Ratio — {attr}\n"
-                     f"(Below {DISPARATE_IMPACT_THRESHOLD} = potential bias concern)",
-                     fontsize=12)
+        subtitle = f"(Below {DISPARATE_IMPACT_THRESHOLD} = potential bias concern)"
+        if undefined:
+            subtitle += f"\nNot shown — never flagged: {', '.join(undefined)}"
+        ax.set_title(f"Disparate Impact Ratio — {attr}\n{subtitle}", fontsize=12)
         ax.set_xlabel(attr)
         ax.set_ylabel("Disparate Impact Ratio")
         ax.set_ylim(0, 1.2)
@@ -275,57 +325,14 @@ if __name__ == "__main__":
     print("Fairness Analysis")
     print("=" * 60)
 
-    import joblib
-    from config import DATA_PATH, TARGET, COLS_TO_DROP, RANDOM_STATE
-    from feature_engineering import engineer_features, REPLACED_CATEGORICALS
-    from sklearn.model_selection import train_test_split
-    from sklearn.compose import ColumnTransformer
-    from sklearn.pipeline import Pipeline
-    from sklearn.impute import SimpleImputer
-    from sklearn.preprocessing import OneHotEncoder, StandardScaler
+    from data_pipeline import build_model_dataset, load_best_model, raw_rows_for
 
-    # Load data
-    df_raw = pd.read_csv(DATA_PATH)
-    df_eng = engineer_features(df_raw)
+    data   = build_model_dataset()
+    model  = load_best_model()
+    y_test = data["y_test"]
 
-    X = df_eng.drop(columns=[TARGET] + COLS_TO_DROP)
-    y = df_eng[TARGET]
-
-    cols_to_remove = [c for c in REPLACED_CATEGORICALS if c in X.columns]
-    X_xgb = X.drop(columns=cols_to_remove)
-
-    _, X_temp, _, y_temp = train_test_split(
-        X_xgb, y, test_size=0.20, random_state=RANDOM_STATE, stratify=y
-    )
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_temp, y_temp, test_size=0.50, random_state=RANDOM_STATE, stratify=y_temp
-    )
-
-    # Rebuild preprocessor
-    X_train, _, _, _ = train_test_split(
-        X_xgb, y, test_size=0.20, random_state=RANDOM_STATE, stratify=y
-    )
-    cat_cols = X_train.select_dtypes(include=["object"]).columns.tolist()
-    num_cols = X_train.select_dtypes(include=[np.number]).columns.tolist()
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ("num", Pipeline([("imp", SimpleImputer(strategy="median")),
-                              ("sc", StandardScaler())]), num_cols),
-            ("cat", Pipeline([("imp", SimpleImputer(strategy="constant",
-                                                     fill_value="Unknown")),
-                              ("ohe", OneHotEncoder(handle_unknown="ignore"))]), cat_cols),
-        ], remainder="drop"
-    )
-    preprocessor.fit(X_train)
-    X_test_t = preprocessor.transform(X_test)
-
-    # Load model
-    model_path = os.path.join(OUTPUTS_DIR, "improvement", "best_model_improved.joblib")
-    model = joblib.load(model_path)
-    risk_scores = model.predict_proba(X_test_t)[:, 1]
-
-    # Get raw test rows
-    raw_test = df_raw.iloc[y_test.index].reset_index(drop=True)
+    risk_scores = model.predict_proba(data["X_test_t"])[:, 1]
+    raw_test    = raw_rows_for(data, "test")
 
     # Compute fairness
     reports, analysis = compute_fairness_report(raw_test, risk_scores, y_test.values)

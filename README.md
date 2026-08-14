@@ -13,8 +13,8 @@ An end-to-end fraud triage system for automotive insurance claims that:
 3. **Generates** a policy-grounded triage brief using Retrieval-Augmented Generation (RAG) with citations to internal fraud guidelines
 4. **Routes** each claim to the appropriate triage bucket: **SIU Escalation**, **Manual Review**, or **Approve**
 5. **Analyses fairness** across demographic groups (age, sex, marital status) using the 80% disparate impact rule
-6. **Monitors** model behavior over time with batch drift detection
-7. **Tracks** month-by-month performance to detect model decay
+6. **Monitors** for data drift by comparing chronological batches against the training distribution
+7. **Tracks** per-month performance to surface seasonality (pooled across 1994–96, not a decay timeline)
 8. **Visualises** everything in an interactive Streamlit dashboard with 8 pages
 
 ---
@@ -65,7 +65,7 @@ An end-to-end fraud triage system for automotive insurance claims that:
 - [Dataset Comparison](#dataset-comparison)
 - [Fairness Analysis](#fairness-analysis)
 - [Model Monitoring](#model-monitoring)
-- [Temporal Analysis](#temporal-analysis)
+- [Seasonality Analysis](#seasonality-analysis)
 - [SHAP Explainability](#shap-explainability)
 - [RAG Pipeline](#rag-pipeline)
 - [Key Improvements](#key-improvements-over-original-notebook)
@@ -83,6 +83,7 @@ FSE 570 Capstone Project/
 ├── training_config.yaml          # All training settings in one YAML file
 ├── train.py                      # Single command runs the full pipeline
 │
+├── data_pipeline.py              # SINGLE source of truth: CSV → features → split → preprocessor
 ├── data_preprocessing.py         # Data loading, EDA, splitting, preprocessing pipeline
 ├── data_validation.py            # Pandera schema checks on raw data
 ├── feature_engineering.py        # 41 engineered features
@@ -92,8 +93,8 @@ FSE 570 Capstone Project/
 ├── rag_pipeline.py               # RAG: persistent ChromaDB index + triage brief generation
 │
 ├── fairness_analysis.py          # Disparate impact analysis (age, sex, marital status)
-├── monitoring.py                 # Batch drift detection (Evidently + KS test fallback)
-├── temporal_analysis.py          # Month-by-month performance analysis
+├── monitoring.py                 # Batch drift vs. training data (KS + Benjamini-Hochberg)
+├── temporal_analysis.py          # Per-month (seasonality) performance analysis
 ├── medicare_comparison.py        # Medicare vs. auto insurance EDA + comparison plots
 ├── medicare_modeling.py          # XGBoost + Optuna pipeline on Medicare provider fraud data
 │
@@ -293,6 +294,10 @@ This is set up via `.github/workflows/deploy.yml`. The workflow uses three GitHu
 - `HF_USERNAME` — your Hugging Face username
 - `HF_SPACE_NAME` — name of your Space (`fraud-triage`)
 
+### One manual step when creating a new Space
+
+`upload_folder` only adds and updates files — it never deletes, and it skips anything in `ignore_patterns`. `fraud_oracle.csv` is gitignored (Kaggle TOS), so CI cannot ship it, but `app.py` cannot start without it. **After creating a Space, upload `fraud_oracle.csv` once via the Space's Files tab.** Everything else the app needs, including `outputs/improvement/best_model_improved.joblib` (~1 MB), is committed and deployed automatically.
+
 ### Sleep behavior
 Hugging Face free tier puts Spaces to sleep after 48 hours of inactivity. When someone visits after it's been sleeping, it takes ~30 seconds to wake up. This is normal for free-tier hosting — open the link a minute before any live demo.
 
@@ -304,10 +309,10 @@ Two workflows run automatically on every push to `main`:
 
 | Workflow | File | What it does |
 |----------|------|-------------|
-| **Run Tests** | `.github/workflows/tests.yml` | Runs `pytest tests/` — fails the build if any test breaks |
-| **Deploy to HF** | `.github/workflows/deploy.yml` | Pushes latest code to Hugging Face Spaces |
+| **Run Tests** | `.github/workflows/tests.yml` | Runs `pytest tests/` with coverage — fails the build if any test breaks |
+| **Deploy to HF** | `.github/workflows/deploy.yml` | Runs the suite in a `test` job, then pushes to Hugging Face Spaces only if it passes (`needs: test`) |
 
-This means every code change is automatically tested and deployed. If a test fails, the deployment is blocked. This is standard CI/CD (Continuous Integration / Continuous Deployment) practice used at every software company.
+Every code change is automatically tested and deployed, and a failing test blocks the deploy — the `deploy` job depends on the `test` job in the same workflow, so it never starts if the suite is red. This is standard CI/CD (Continuous Integration / Continuous Deployment) practice used at every software company.
 
 ---
 
@@ -325,7 +330,7 @@ Each page has a collapsible **ℹ️** button at the top with a plain-English ex
 | **⚡ Live Scoring** | Score a brand-new claim in real time — fill a form, get instant risk score, gauge chart, SHAP explanation, and triage brief |
 | **⚖️ Fairness Analysis** | Disparate impact analysis across age groups, sex, and marital status using the 80% rule. Groups with fewer than 30 claims excluded from DI calculation |
 | **📡 Monitoring** | Test set split into 6 time-ordered batches — tracks fraud rate, avg risk score, and feature drift (KS test) per batch |
-| **📅 Temporal Analysis** | Month-by-month PR-AUC, fraud rate, Precision@5%, and avg risk score — highlights best and worst performing months |
+| **📅 Seasonality Analysis** | Per-calendar-month PR-AUC, fraud rate, Precision@5% and avg risk score, pooled across 1994–96. Months with fewer than 5 fraud cases are suppressed rather than plotted |
 | **🗂️ Dataset Comparison** | Side-by-side comparison of automotive insurance (fraud_oracle) and Medicare provider fraud datasets — profiles, visualizations, and methodology applicability |
 
 ---
@@ -337,6 +342,7 @@ Each page has a collapsible **ℹ️** button at the top with a plain-English ex
 | `train.py` | Single entry point — runs full pipeline with MLflow logging |
 | `training_config.yaml` | All settings (split ratios, Optuna trials, thresholds, costs) |
 | `config.py` | Shared paths and constants |
+| `data_pipeline.py` | **Single source of truth** for CSV → engineered features → 80/10/10 split → fitted preprocessor. Used by the training pipeline, the dashboard and every standalone analysis script, so they cannot drift apart |
 | `data_validation.py` | Pandera schema checks before any processing |
 | `data_preprocessing.py` | Load, EDA, split, preprocess |
 | `feature_engineering.py` | 41 engineered features |
@@ -346,7 +352,7 @@ Each page has a collapsible **ℹ️** button at the top with a plain-English ex
 | `rag_pipeline.py` | ChromaDB vector index + triage brief generation |
 | `fairness_analysis.py` | Disparate impact analysis across demographic groups |
 | `monitoring.py` | Batch drift detection (Evidently + KS test fallback) |
-| `temporal_analysis.py` | Month-by-month performance tracking |
+| `temporal_analysis.py` | Per-month (seasonality) performance, pooled across years |
 | `medicare_comparison.py` | Medicare vs. auto EDA and comparison plots |
 | `medicare_modeling.py` | XGBoost + Optuna pipeline on Medicare provider fraud |
 | `app.py` | 8-page Streamlit dashboard |
@@ -394,7 +400,7 @@ In regulated industries like insurance, an audit trail of model decisions is oft
 
 ## Tests
 
-The project has 60+ automated tests covering all core modules. Tests run automatically on every GitHub push via CI.
+The project has 120 automated test functions across 6 files, covering all core modules. Tests run automatically on every GitHub push via CI, and again as the gate on the deploy workflow — the full suite in both, with identical invocations so the gate can never disagree with the badge.
 
 ```bash
 pytest tests/           # run all tests
@@ -410,6 +416,8 @@ pytest tests/ --cov=.   # with coverage report
 | `test_preprocessing.py` | Data split ratios (80/10/10), no overlap between splits, stratification, preprocessor output shape, no NaN after transform, PolicyNumber dropped |
 | `test_modeling_utils.py` | Precision@K, Recall@K, triage bucket counts (5%/15%/80%), ROI calculation, reason code generation, OHE decoding |
 | `test_rag_pipeline.py` | Document chunking, chunk uniqueness, query building, template brief generation for all 3 triage buckets, API key fallback |
+| `test_monitoring.py` | Chronological batch ordering across years, drift-feature exclusions, Benjamini-Hochberg behaviour in both directions, seasonality sample-size guard, age-band derivation |
+| `test_fairness.py` | Disparate impact with a never-flagged reference group, NaN handling in the flag column, `Age == 0` binning |
 
 ### Why tests matter
 Without tests, every code change risks silently breaking something. For example:
@@ -456,23 +464,29 @@ Tests catch these instantly. The GitHub Action blocks deployment if any test fai
 
 ### Triage Bucket Performance
 
-| Bucket | Count | Fraud Rate | Enrichment |
-|--------|:-----:|:----------:|:----------:|
-| **SIU** (top 5%) | 77 | **32.5%** | **5.4x** |
-| **Manual Review** (next 15%) | 231 | 16.0% | 2.7x |
-| **Approve** (remaining 80%) | 1,234 | 2.5% | 0.4x |
+Both splits are 1,542 claims, so the bucket sizes are identical — only the fraud captured differs. **Quote the test column.** All figures below are generated by `model_improvement.py` into [`outputs/improvement/triage_summary.json`](outputs/improvement/triage_summary.json).
+
+| Bucket | Count | Fraud Rate (val) | Enrichment (val) | Fraud Rate (**test**) | Enrichment (**test**) |
+|--------|:-----:|:----------------:|:----------------:|:---------------------:|:---------------------:|
+| **SIU** (top 5%) | 77 | 32.5% | 5.4x | **27.3%** | **4.6x** |
+| **Manual Review** (next 15%) | 231 | 16.0% | 2.7x | 14.7% | 2.5x |
+| **Approve** (remaining 80%) | 1,234 | 2.5% | 0.4x | 3.0% | 0.5x |
+
+> Enrichment is each bucket's fraud rate divided by that split's own base rate (6.03% val, 5.97% test).
 
 ### ROI
 
-| Metric | Validation Set | Test Set |
+| Metric | Validation Set | **Test Set** |
 |--------|:-:|:-:|
-| Fraud claims caught | 54 | 55 |
-| Losses prevented | $810,000 | $825,000 |
-| Investigation costs | $61,600 | $61,600 |
-| **Net benefit** | **$748,400** | **$763,400** |
-| **ROI** | **13.1x** | **13.4x** |
+| Fraud claims caught | 62 | **55** |
+| Losses prevented | $930,000 | **$825,000** |
+| Investigation costs | $61,600 | **$61,600** |
+| **Net benefit** | **$868,400** | **$763,400** |
+| **ROI** | **15.1x** | **13.4x** |
 
-> Test-set ROI is the honest production estimate (data never seen during training or model selection). Validation-set figures are higher because the model was tuned on that partition.
+> Test-set ROI is the honest production estimate (data never seen during training or model selection). Validation figures are higher because the model was tuned and early-stopped on that partition.
+>
+> **How to read the ROI figure.** It is a benefit-cost ratio — losses prevented ÷ investigation cost (825,000 ÷ 61,600 = 13.4x). Net benefit ÷ cost would be 12.4x. The model assumes every fraud caught avoids the full $15,000 average loss, that investigation always succeeds, and a flat $500 / $100 cost per SIU / manual review. It is a linear sensitivity estimate under stated assumptions, not an accounting result.
 
 ---
 
@@ -487,7 +501,16 @@ Groups analysed:
 
 Metrics per group: flag rate, fraud rate, false positive rate, precision, disparate impact ratio.
 
+**How the ratio is computed:** `DI(group) = (least-flagged group's flag rate) ÷ (this group's flag rate)`. The least-flagged group therefore scores 1.00, and a group falls below 0.80 when it is flagged at more than 1.25× that rate. Being flagged here means being investigated — a burden, not a benefit — so the rule surfaces the *most*-flagged group, the reverse of the classic hiring-selection framing of the 80% rule.
+
 **Groups with fewer than 30 claims are excluded** from the disparate impact calculation — small samples produce unreliable ratios (e.g. Widow, 65+).
+
+### Two reporting rules that matter
+
+- **The reference group must actually be flagged.** On the test split the `65+` group (n=48) is never flagged at all. Using it as the ratio denominator drove every other group to 0.000 and marked them all as concerns. The reference is now the least-flagged group *with a non-zero rate*, and a never-flagged group is reported as `n/a (never flagged)` — which is a finding in its own right.
+- **`Age == 0` is not an age.** 320 rows carry it (34 in the test split); they used to fall outside every bin and render as a demographic group labelled `nan`. They are now labelled "Unknown (age not recorded)" and excluded from the ratio, like small groups. Reporting only — the model's feature path is untouched.
+
+With those corrected, the age gradient is legible: **16-25 at 0.574**, 26-35 at 0.722, 36-50 at 0.754, against 51-65 as the reference.
 
 ### Key Finding
 The model flags **Males at ~22%** vs **Females at ~12%**, giving a disparate impact ratio of **0.574** — below the 0.80 threshold. This does not necessarily mean the model is biased. It may reflect genuine fraud patterns in the data. However, features like `VehicleCategory` or `AgentType` may be acting as indirect proxies for sex (proxy discrimination), which would warrant further investigation before production deployment.
@@ -501,10 +524,10 @@ python fairness_analysis.py    # standalone run
 
 ## Model Monitoring
 
-Simulates production monitoring by splitting the test set into 6 time-ordered batches and checking for drift.
+Simulates production monitoring by splitting the test set into 6 chronological batches and comparing each against the training data.
 
-- **Data drift**: feature distributions shifting (Evidently or KS test fallback)
-- **Prediction drift**: risk score distribution changing
+- **Data drift**: feature distributions shifting (Evidently, KS-test fallback)
+- **Prediction drift**: risk score distribution changing per batch
 - **Target drift**: actual fraud rate changing per batch
 
 ```bash
@@ -512,16 +535,33 @@ python monitoring.py    # standalone run
 # or view in dashboard: 📡 Monitoring page
 ```
 
+### What this does and does not demonstrate
+
+All 15,420 claims come from a single static 1994–96 collection that is split **randomly**, so there is no real time axis along which the model could decay. This page demonstrates the detection machinery; the expected and correct result is **stable**. Three details make that result trustworthy rather than vacuous:
+
+| Choice | Why |
+|--------|-----|
+| Reference = **training split** | `run_monitoring(reference_df=...)` is passed the raw training rows. Comparing batches against batch 1 of the test set — the old default — only compares held-out data with itself, while the UI claimed it was comparing against training |
+| Batches ordered by **(Year, Month)** | Every calendar month contains claims from all three years (Jan is 43/34/23% across 1994/95/96), so ordering by month name alone interleaved years inside each batch |
+| `Year` and `RepNumber` **excluded** | `Year` is the batching key — testing it for drift is circular. `RepNumber` is a claims-rep identifier, not a distribution |
+| **Benjamini-Hochberg** correction | 5–6 batches × 5 features is ~30 hypothesis tests; at α=0.05 roughly 1.5 will fire by chance. A current run shows batch 5 flagging 1 feature at raw p<0.05 that the correction correctly removes — without it, the dashboard would report drift almost every run |
+
 ---
 
-## Temporal Analysis
+## Seasonality Analysis
 
-Evaluates model performance month-by-month using the `Month` column in the dataset. Shows how PR-AUC, fraud rate, and Precision@5% vary across the year.
+Evaluates model performance for each calendar month, **pooled across 1994–1996**. This is a seasonality view, not model decay over time — "December" means every December in the dataset, not a point on a timeline. Drift is the Monitoring page's job.
 
 ```bash
 python temporal_analysis.py    # standalone run
-# or view in dashboard: 📅 Temporal Analysis page
+# or view in dashboard: 📅 Seasonality Analysis page
 ```
+
+### Sample sizes govern what can be claimed
+
+Each month holds ~115–150 test claims and between 3 and 13 fraud cases, and Precision@5% is computed over just 5–7 claims. Months with fewer than 5 fraud cases (**Feb 4, Apr 3**) have their PR-AUC and Precision@5% **suppressed rather than plotted** — a ranking metric on 3 positives is noise, and plotting it invites a seasonal story that isn't there. The dashboard table shows a `Fraud` column so every number's sample size is visible.
+
+Even among the 10 scored months the spread is mostly sampling noise: Dec 0.708 (11 fraud) against Nov 0.106 (5 fraud), std 0.176 across months versus an overall test PR-AUC of 0.244.
 
 ---
 
@@ -584,17 +624,29 @@ OPENAI_API_KEY=sk-your-key-here
 | Features | 31 raw features | 41 engineered + 7 guideline-grounded flags |
 | Hyperparameter tuning | RandomizedSearchCV | Optuna Bayesian TPE |
 | Ensemble | None | OOF stacking (XGB + CatBoost → LR meta-learner) |
-| Calibration | None | Isotonic calibration |
+| Calibration | None | Isotonic calibration (diagnostic — see caveat below) |
 | Experiment tracking | None | MLflow — every run logged |
 | Data validation | None | Pandera schema checks |
 | Tests | None | 60+ pytest tests, CI via GitHub Actions |
 | Fairness | Not measured | Disparate impact analysis (80% rule) |
-| Monitoring | Not measured | Batch drift detection |
+| Monitoring | Not measured | Batch drift detection (Evidently, KS-test fallback) |
 | Temporal analysis | Not measured | Month-by-month performance tracking |
 | RAG corpus | 3 docs, 36 chunks, rebuilt every run | 4 docs, 56 chunks, persistent index, GPT-4o-mini integrated |
 | Deployment | Local only | Docker + Hugging Face Spaces (auto-deploy) |
 | Pipeline | 4 manual scripts | Single `python train.py` command |
 | Dashboard | None | 8-page Streamlit app |
+
+### Known caveats — stated rather than buried
+
+Three items in the table above are narrower than they sound, and it is better to say so than to be asked:
+
+- **Calibration is a diagnostic, not part of serving.** The isotonic calibrator is fit on the validation set and the reliability diagram is drawn on that same set, so it flatters itself; and the dashboard loads the raw model and calls `predict_proba` directly. Triage is rank-based (top 5% / next 15%), so calibration does not affect bucket assignment.
+- **Permutation importance is reported, not applied.** `permutation_feature_selection()` computes and saves the ranking, but no features are dropped as a result — the model uses all 90 transformed features.
+- **Drift detection falls back.** `monitoring.py` prefers Evidently but wraps it in `try/except` and falls back to a SciPy KS test. Evidently ≥ 0.7 removed `evidently.report`, so `requirements.txt` pins `<0.7`; above that pin the KS path is what actually runs.
+- **Model selection rests on 93 validation fraud cases.** The gap between XGBoost (0.3223), the OOF stack (0.3144) and CatBoost (0.2879) is within cross-validation noise (±0.025). "XGBoost was selected" is accurate; "XGBoost is better" would be overclaiming.
+- **Monitoring is a mechanics demo, and says so.** A randomly split static dataset has no time axis, so "stable" is the only honest outcome. See [Model Monitoring](#model-monitoring) for the four choices that keep that result meaningful.
+- **Seasonality is not decay, and small months are suppressed.** Two of twelve months have too few fraud cases to score. See [Seasonality Analysis](#seasonality-analysis).
+- **Live Scoring fills six fields you don't see.** `Make`, `RepNumber`, `DriverRating`, `WeekOfMonth`, `WeekOfMonthClaimed` and `NumberOfCars` are assumed and listed in a caption under the result; `Year` is pinned to 1996 because the model never saw a later one. `AgeOfPolicyHolder` is derived from the Age slider rather than hardcoded.
 
 ---
 
@@ -607,7 +659,7 @@ OPENAI_API_KEY=sk-your-key-here
 | `outputs/metrics/` | Model comparison CSV, triage results, ROI JSON |
 | `outputs/models/` | Serialized base models |
 | `outputs/shap/` | Global importance, beeswarm plot, reason codes |
-| `outputs/improvement/` | Optuna results, best model, model_metadata.json |
+| `outputs/improvement/` | Optuna results, best model, model_metadata.json, triage_summary.json (val + test buckets and ROI) |
 | `outputs/rag/` | ChromaDB index, demo triage briefs |
 | `outputs/fairness/` | Disparate impact charts and CSVs per demographic group |
 | `outputs/monitoring/` | Batch statistics, drift summary, trend charts |

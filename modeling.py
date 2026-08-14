@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.calibration import CalibratedClassifierCV, calibration_curve
+from sklearn.calibration import calibration_curve
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.metrics import (
     average_precision_score,
@@ -133,28 +133,20 @@ def evaluate_model(y_true, y_prob, model_name="Model", pct_review=0.05,
 # ============================================================
 def calibrate_model(model, X_val_t, y_val, method="isotonic"):
     """
-    Fit an isotonic (or sigmoid) calibrator on the validation set.
-    Compatible with sklearn >= 1.2 which removed cv='prefit'.
-    Wraps the already-trained model using set_params to freeze it.
-    """
-    from sklearn.frozen import FrozenEstimator
-    try:
-        # sklearn >= 1.4 has FrozenEstimator
-        frozen = FrozenEstimator(model)
-        cal = CalibratedClassifierCV(frozen, method=method, cv="prefit")
-    except ImportError:
-        # Fallback: pass cv=None and fit on val set directly
-        cal = CalibratedClassifierCV(model, method=method, cv=2)
-        # Use a tiny stratified split so it doesn't refit the base model
-        from sklearn.model_selection import StratifiedShuffleSplit
-        cal = CalibratedClassifierCV(model, method=method)
-        cal.calibrated_classifiers_ = None
+    Fit an isotonic (or sigmoid) calibrator on top of an already-trained model.
 
-    # Universal approach that works across all sklearn versions:
-    # manually build a calibrated wrapper using the val set
-    from sklearn.calibration import _CalibratedClassifier
-    cal = CalibratedClassifierCV(model, method=method, cv=2)
-    # Override: just fit a calibrator on top of existing predictions
+    sklearn's CalibratedClassifierCV is deliberately not used here: cv='prefit'
+    was removed in sklearn 1.2 and the FrozenEstimator replacement only exists
+    in 1.6+, so wrapping the frozen estimator is not portable across the
+    versions this project is expected to run on. Fitting a one-dimensional
+    calibrator directly on the model's own predicted probabilities is
+    equivalent and version-independent.
+
+    NOTE: the calibrator is fit on the validation set, so evaluating it on that
+    same set (as plot_calibration_curve does downstream) overstates how well
+    calibrated it is. It is a diagnostic, not a held-out measurement — and the
+    dashboard serves the raw model, not this wrapper.
+    """
     y_prob_raw = model.predict_proba(X_val_t)[:, 1].reshape(-1, 1)
 
     if method == "isotonic":
@@ -402,6 +394,70 @@ def triage_analysis(y_true, y_prob, model_name="Best Model",
         json.dump(roi_summary, f, indent=2)
 
     return results, roi_summary
+
+
+# ============================================================
+# Triage + ROI summary for an arbitrary split (no side effects)
+# ============================================================
+def compute_triage_summary(y_true, y_prob, split_name,
+                           avg_fraud_loss=AVG_FRAUD_LOSS,
+                           siu_cost=SIU_COST, manual_cost=MANUAL_COST):
+    """
+    Bucket a split's predictions into SIU / Manual Review / Approve and return
+    per-bucket fraud rates, enrichment vs. that split's base rate, and the
+    cost-benefit summary.
+
+    Unlike triage_analysis() this writes nothing and prints nothing, so it can
+    be called for the validation *and* the test split. The test-split output is
+    the honest production estimate and is what the README quotes.
+    """
+    y_arr  = np.asarray(y_true)
+    y_prob = np.asarray(y_prob)
+    n = len(y_prob)
+    base_rate = float(y_arr.mean())
+
+    siu_cut    = int(PCT_SIU * n)
+    manual_cut = int((PCT_SIU + PCT_MANUAL) * n)
+    order      = np.argsort(y_prob)[::-1]
+    idx = {
+        "SIU":           order[:siu_cut],
+        "Manual Review": order[siu_cut:manual_cut],
+        "Approve":       order[manual_cut:],
+    }
+
+    buckets = {}
+    for name, rows in idx.items():
+        rate = float(y_arr[rows].mean()) if len(rows) else 0.0
+        buckets[name] = {
+            "count":      int(len(rows)),
+            "fraud":      int(y_arr[rows].sum()),
+            "fraud_rate": round(rate, 4),
+            "enrichment": round(rate / base_rate, 2) if base_rate else 0.0,
+        }
+
+    fraud_caught = buckets["SIU"]["fraud"] + buckets["Manual Review"]["fraud"]
+    savings = fraud_caught * avg_fraud_loss
+    costs   = buckets["SIU"]["count"] * siu_cost + buckets["Manual Review"]["count"] * manual_cost
+
+    return {
+        "split":            split_name,
+        "n":                n,
+        "base_fraud_rate":  round(base_rate, 4),
+        "buckets":          buckets,
+        "roi": {
+            "fraud_caught":  fraud_caught,
+            "savings_usd":   savings,
+            "costs_usd":     costs,
+            "net_benefit":   savings - costs,
+            # benefit-cost ratio: savings / costs (NOT net / costs, which is 1 lower)
+            "roi_x":         round(savings / max(costs, 1), 2),
+        },
+        "cost_assumptions": {
+            "avg_fraud_loss": avg_fraud_loss,
+            "siu_cost":       siu_cost,
+            "manual_cost":    manual_cost,
+        },
+    }
 
 
 # ============================================================
