@@ -1,0 +1,49 @@
+# ============================================================
+# Dockerfile.api — fraud triage scoring service
+# ============================================================
+# Build:  docker build -f Dockerfile.api -t fraud-triage-api .
+# Run:    docker run -p 8000:8000 fraud-triage-api
+# Docs:   http://localhost:8000/docs
+#
+# Serving-only image. It installs requirements-api.txt rather than the full
+# training stack, and copies only the modules the request path touches plus the
+# artifacts in outputs/improvement/. Notably it does NOT need fraud_oracle.csv —
+# the preprocessor is loaded fitted, not refitted from data at boot.
+# ============================================================
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-api.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements-api.txt
+
+# Request-path modules only
+COPY api/                  ./api/
+COPY config.py             .
+COPY data_pipeline.py      .
+COPY data_validation.py    .
+COPY feature_engineering.py .
+
+# Serving artifacts: model, fitted preprocessor, serving bundle
+COPY outputs/improvement/best_model_improved.joblib ./outputs/improvement/
+COPY outputs/improvement/preprocessor.joblib        ./outputs/improvement/
+COPY outputs/improvement/serving_bundle.json        ./outputs/improvement/
+
+ENV PYTHONUNBUFFERED=1
+ENV MAX_BATCH=500
+
+EXPOSE 8000
+
+# Fails the container if the model did not load, rather than serving 503s
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://localhost:8000/health | grep -q '"artifacts_loaded":true' || exit 1
+
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

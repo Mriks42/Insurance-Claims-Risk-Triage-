@@ -37,6 +37,11 @@ python-dotenv>=1.0
 streamlit>=1.30
 plotly>=5.18
 
+# Scoring API (see requirements-api.txt for the serving-only subset)
+fastapi>=0.110
+uvicorn[standard]>=0.27
+httpx>=0.27          # used by fastapi.testclient and scripts/benchmark_api.py
+
 # Experiment tracking
 mlflow>=2.10
 

@@ -1,0 +1,19 @@
+# Serving-only dependencies.
+#
+# Deliberately NOT requirements.txt: the training stack (catboost, lightgbm,
+# optuna, mlflow, evidently, pandera, streamlit, plotly, matplotlib) is not
+# needed to score a claim and roughly triples the image. The API loads a fitted
+# preprocessor and a trained model — nothing that trains anything.
+
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+
+pandas>=2.0,<3.0
+numpy>=1.24
+scikit-learn>=1.3
+xgboost>=2.0
+joblib>=1.3
+
+# SHAP powers the opt-in `explain=true` path only
+shap>=0.44

@@ -4,6 +4,10 @@
     "split": "validation",
     "n": 1542,
     "base_fraud_rate": 0.0603,
+    "thresholds": {
+      "siu_threshold": 0.7510049343109131,
+      "manual_threshold": 0.6323903799057007
+    },
     "buckets": {
       "SIU": {
         "count": 77,
@@ -41,6 +45,10 @@
     "split": "test",
     "n": 1542,
     "base_fraud_rate": 0.0597,
+    "thresholds": {
+      "siu_threshold": 0.7603463530540466,
+      "manual_threshold": 0.6334759593009949
+    },
     "buckets": {
       "SIU": {
         "count": 77,

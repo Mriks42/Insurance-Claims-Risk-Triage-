@@ -45,6 +45,7 @@ from modeling import (
     evaluate_model,
     triage_analysis,
     compute_triage_summary,
+    bootstrap_metric_ci,
     save_best_model,
     calibrate_model,
     plot_calibration_curve,
@@ -598,6 +599,44 @@ def main():
     joblib.dump(best_model_obj,
                 os.path.join(IMPROVEMENT_DIR, "best_model_improved.joblib"))
     print(f"\nSaved best model to: {IMPROVEMENT_DIR}/best_model_improved.joblib")
+
+    # 11a) Save the FITTED preprocessor alongside the model.
+    #      Without this, anything that scores a claim has to re-read
+    #      fraud_oracle.csv and re-fit the ColumnTransformer — which means
+    #      serving depends on the training data being present and unchanged,
+    #      and any edit to the CSV silently changes the transform. Persisting it
+    #      is what makes the inference API (and the HF Space) independent of the
+    #      dataset.
+    joblib.dump(data["preprocessor"],
+                os.path.join(IMPROVEMENT_DIR, "preprocessor.joblib"))
+    print(f"Saved fitted preprocessor to: {IMPROVEMENT_DIR}/preprocessor.joblib")
+
+    # 11b) Serving bundle — the contract the API validates itself against.
+    test_point, test_lo, test_hi = bootstrap_metric_ci(data["y_test"], test_prob)
+    serving_bundle = {
+        "model_version":     "v1",
+        "model_name":        best_name,
+        "trained_at":        pd.Timestamp.now().isoformat(),
+        "n_features":        int(data["X_train_t"].shape[1]),
+        "feature_names":     list(data["feature_names"]),
+        "raw_input_columns": sorted(set(data["X_train"].columns)),
+        "cat_cols":          list(data["cat_cols"]),
+        "num_cols":          list(data["num_cols"]),
+        "thresholds":        triage_summaries["test"]["thresholds"],
+        "metrics": {
+            "test_pr_auc":        round(test_point, 4),
+            "test_pr_auc_ci_95":  [round(test_lo, 4), round(test_hi, 4)],
+            "test_roc_auc":       round(float(test_summary["ROC_AUC"]), 4),
+            "val_pr_auc":         round(float(comparison.iloc[0]["PR_AUC"]), 4),
+            "base_fraud_rate":    triage_summaries["test"]["base_fraud_rate"],
+        },
+        "cost_assumptions":  triage_summaries["test"]["cost_assumptions"],
+    }
+    bundle_path = os.path.join(IMPROVEMENT_DIR, "serving_bundle.json")
+    with open(bundle_path, "w") as f:
+        json.dump(serving_bundle, f, indent=2)
+    print(f"Saved serving bundle to: {bundle_path}")
+    print(f"  test PR-AUC {test_point:.4f}  95% CI [{test_lo:.4f}, {test_hi:.4f}]")
 
     # 11b) Register model in MLflow Model Registry
     try:

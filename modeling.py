@@ -397,6 +397,38 @@ def triage_analysis(y_true, y_prob, model_name="Best Model",
 
 
 # ============================================================
+# Uncertainty on a metric
+# ============================================================
+def bootstrap_metric_ci(y_true, y_prob, metric=average_precision_score,
+                        n_boot=2000, alpha=0.05, random_state=RANDOM_STATE):
+    """
+    Percentile bootstrap confidence interval for a ranking metric.
+
+    Worth reporting because the test split holds only ~92 fraud cases, so the
+    point estimate carries a wide interval (test PR-AUC 0.2443 sits in roughly
+    [0.17, 0.33]). Quoting the interval alongside the estimate is the difference
+    between "the tuned model scores higher" and "the tuned model scores higher
+    than the noise floor".
+
+    Returns (point, low, high).
+    """
+    y_true, y_prob = np.asarray(y_true), np.asarray(y_prob)
+    point = float(metric(y_true, y_prob))
+
+    rng = np.random.default_rng(random_state)
+    n = len(y_true)
+    scores = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, n)
+        if y_true[idx].sum() == 0:      # undefined for an all-negative resample
+            continue
+        scores.append(float(metric(y_true[idx], y_prob[idx])))
+
+    lo, hi = np.percentile(scores, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return point, float(lo), float(hi)
+
+
+# ============================================================
 # Triage + ROI summary for an arbitrary split (no side effects)
 # ============================================================
 def compute_triage_summary(y_true, y_prob, split_name,
@@ -435,6 +467,15 @@ def compute_triage_summary(y_true, y_prob, split_name,
             "enrichment": round(rate / base_rate, 2) if base_rate else 0.0,
         }
 
+    # Score cut-points at the bucket boundaries. Persisting these is what lets a
+    # single claim be bucketed at serving time — without them an API would have
+    # to re-score a whole reference population to know where the top 5% starts.
+    ordered = np.sort(y_prob)[::-1]
+    thresholds = {
+        "siu_threshold":    float(ordered[max(0, siu_cut - 1)]),
+        "manual_threshold": float(ordered[max(0, manual_cut - 1)]),
+    }
+
     fraud_caught = buckets["SIU"]["fraud"] + buckets["Manual Review"]["fraud"]
     savings = fraud_caught * avg_fraud_loss
     costs   = buckets["SIU"]["count"] * siu_cost + buckets["Manual Review"]["count"] * manual_cost
@@ -443,6 +484,7 @@ def compute_triage_summary(y_true, y_prob, split_name,
         "split":            split_name,
         "n":                n,
         "base_fraud_rate":  round(base_rate, 4),
+        "thresholds":       thresholds,
         "buckets":          buckets,
         "roi": {
             "fraud_caught":  fraud_caught,

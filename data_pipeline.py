@@ -139,10 +139,105 @@ def build_model_dataset(data_path=DATA_PATH, random_state=RANDOM_STATE,
     return data
 
 
+IMPROVEMENT_DIR   = os.path.join(OUTPUTS_DIR, "improvement")
+PREPROCESSOR_PATH = os.path.join(IMPROVEMENT_DIR, "preprocessor.joblib")
+BUNDLE_PATH       = os.path.join(IMPROVEMENT_DIR, "serving_bundle.json")
+
+
 def load_best_model(path=BEST_MODEL_PATH):
     """Load the serialized best model produced by model_improvement.py."""
     import joblib
     return joblib.load(path)
+
+
+class ArtifactsMissing(RuntimeError):
+    """Raised when the serving artifacts are absent — never fall back silently."""
+
+
+def load_serving_artifacts(improvement_dir=IMPROVEMENT_DIR):
+    """
+    Load everything needed to score a claim WITHOUT the training dataset:
+    the model, the fitted preprocessor, and the serving bundle (feature order,
+    bucket thresholds, metrics).
+
+    This is the boundary between training and serving. Anything that scores a
+    claim should come through here rather than calling build_model_dataset(),
+    which re-reads fraud_oracle.csv and re-fits the ColumnTransformer — the
+    train/serve skew risk this exists to remove.
+
+    Raises ArtifactsMissing with the exact path when something is absent, so a
+    misconfigured deployment fails loudly at boot instead of scoring claims with
+    a transform that was never fitted on the training data.
+    """
+    import json
+    import joblib
+
+    model_path = os.path.join(improvement_dir, "best_model_improved.joblib")
+    pre_path   = os.path.join(improvement_dir, "preprocessor.joblib")
+    bundle_p   = os.path.join(improvement_dir, "serving_bundle.json")
+
+    for path, what in ((model_path, "trained model"),
+                       (pre_path,   "fitted preprocessor"),
+                       (bundle_p,   "serving bundle")):
+        if not os.path.exists(path):
+            raise ArtifactsMissing(
+                f"Missing {what}: {path}. Run `python train.py` to generate the "
+                f"serving artifacts."
+            )
+
+    with open(bundle_p) as f:
+        bundle = json.load(f)
+
+    return {
+        "model":        joblib.load(model_path),
+        "preprocessor": joblib.load(pre_path),
+        "bundle":       bundle,
+    }
+
+
+def score_claims_frame(raw_df, artifacts):
+    """
+    Score a frame of RAW claims (the dataset's own column layout) end to end.
+
+    Applies the same engineer -> drop replaced categoricals -> transform path the
+    model was trained under, using the persisted preprocessor. Shared by the API
+    and by any batch scoring job so the two cannot drift apart.
+
+    Returns (probabilities, transformed_matrix).
+    """
+    import numpy as np
+
+    eng = engineer_features(raw_df.copy())
+    X = eng.drop(columns=[c for c in [TARGET] + COLS_TO_DROP if c in eng.columns],
+                 errors="ignore")
+    X = X.drop(columns=[c for c in REPLACED_CATEGORICALS if c in X.columns])
+
+    pre      = artifacts["preprocessor"]
+    cat_cols = artifacts["bundle"]["cat_cols"]
+    num_cols = artifacts["bundle"]["num_cols"]
+
+    # Align to the training column space. Missing categoricals become "Unknown"
+    # (the value the fitted imputer expects); missing numerics become 0.
+    for col in cat_cols:
+        if col not in X.columns:
+            X[col] = "Unknown"
+    for col in num_cols:
+        if col not in X.columns:
+            X[col] = 0
+    X = X[cat_cols + num_cols]
+
+    X_t  = pre.transform(X)
+    prob = artifacts["model"].predict_proba(X_t)[:, 1]
+    return np.asarray(prob), X_t
+
+
+def assign_bucket_from_thresholds(score, thresholds):
+    """Bucket a single score against the persisted cut-points."""
+    if score >= thresholds["siu_threshold"]:
+        return "SIU"
+    if score >= thresholds["manual_threshold"]:
+        return "Manual Review"
+    return "Approve"
 
 
 def raw_rows_for(data, split="test"):

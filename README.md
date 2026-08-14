@@ -276,6 +276,61 @@ If you don't have admin rights to install Docker Desktop:
 
 ---
 
+## Scoring API
+
+The model is served over HTTP independently of the dashboard, so it can be called by a claims system rather than only clicked in a browser.
+
+```bash
+uvicorn api.main:app --port 8000      # docs at http://localhost:8000/docs
+docker compose up api                  # or containerised
+```
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /predict` | Score one claim → risk score, triage bucket, applied defaults. `?explain=true` adds SHAP reason codes |
+| `POST /predict/batch` | Score many claims in one transform pass (capped by `MAX_BATCH`, 413 above it) |
+| `GET /health` | Liveness **and** whether the model artifacts actually loaded |
+| `GET /model` | Version, training date, held-out PR-AUC **with its confidence interval**, bucket thresholds, cost assumptions |
+
+```bash
+curl -X POST localhost:8000/predict -H 'content-type: application/json' -d '{
+  "BasePolicy":"Liability","VehicleCategory":"Sport","VehiclePrice":"more than 69000",
+  "Fault":"Policy Holder","PoliceReportFiled":"No","WitnessPresent":"No",
+  "AgentType":"External","AddressChange_Claim":"under 6 months","Deductible":400,
+  "PastNumberOfClaims":"2 to 4","NumberOfSuppliments":"more than 5","Age":23,
+  "Sex":"Male","MaritalStatus":"Single","AccidentArea":"Urban","AgeOfVehicle":"7 years",
+  "Month":"Jan","DayOfWeek":"Monday","Days_Policy_Accident":"none",
+  "MonthClaimed":"Jan","DayOfWeekClaimed":"Tuesday","Days_Policy_Claim":"more than 30"}'
+```
+
+### The API does not read the dataset
+
+Training now persists the **fitted preprocessor** (`outputs/improvement/preprocessor.joblib`) and a **serving bundle** (feature order, bucket thresholds, metrics) alongside the model. Before that, anything scoring a claim re-read `fraud_oracle.csv` and re-fitted the `ColumnTransformer`, which meant serving depended on the training data being present and unchanged — a train/serve skew risk, and the reason the Hugging Face Space needed the CSV uploaded by hand.
+
+`tests/test_api.py::TestTrainServeSkew` scores rows through HTTP and asserts the result matches the offline model to within 1e-6.
+
+Request validation reuses the Pandera schema in `data_validation.py`, so the API's idea of a valid claim cannot drift from the pipeline's. Unknown categories, out-of-range ages and misspelled fields are 422s with the offending field named — including `Age: 0`, which appears 320 times in the training file and is a data artifact rather than an age.
+
+### Latency
+
+Measured in-process (full FastAPI stack, no network) via `python scripts/benchmark_api.py`, written to `outputs/serving/latency.json`:
+
+| Scenario | p50 | p95 | p99 | Throughput |
+|----------|----:|----:|----:|-----------:|
+| Single claim | 28.3 ms | 31.5 ms | 35.5 ms | 35 claims/s |
+| Single + SHAP explanation | 30.1 ms | 31.6 ms | 57.5 ms | 33 claims/s |
+| Batch of 10 | 31.3 ms | 37.1 ms | 57.5 ms | 320 claims/s |
+| Batch of 100 | 35.3 ms | 41.5 ms | 43.0 ms | **2,835 claims/s** |
+| `/health` | 1.2 ms | 1.6 ms | 1.8 ms | — |
+
+Cold start (loading model + preprocessor + bundle): **64 ms**.
+
+**Where the time actually goes.** XGBoost inference on one row is **0.59 ms** — about 2% of a request. The rest is pandas feature engineering and the sklearn `ColumnTransformer`, whose cost is per-*call* rather than per-row, which is why 100 claims cost barely more than one and per-claim latency falls to 0.35 ms when batched.
+
+Profiling the request path found `engineer_features()` at 72% of single-claim latency, spent on 41 separate `df[col] = ...` assignments — each paying a pandas block-manager insert regardless of the arithmetic involved. Collecting the columns and attaching them with one `concat` took p50 from **43 ms to 28 ms**, with a regression test asserting the engineered frame is identical to the previous implementation across all 15,420 rows.
+
+---
+
 ## Deployment — Hugging Face Spaces
 
 🚀 **Live URL:** [https://huggingface.co/spaces/Mriks/fraud-triage](https://huggingface.co/spaces/Mriks/fraud-triage)
