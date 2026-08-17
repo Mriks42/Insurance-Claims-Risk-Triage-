@@ -67,27 +67,6 @@ h2, h3 { color: #111827 !important; }
 .stButton > button[kind="primary"]:hover { background: #1d4ed8; }
 
 /* Brief container */
-.brief-box {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-left: 4px solid #2563eb;
-    border-radius: 8px;
-    padding: 20px 24px;
-    margin-top: 8px;
-    font-size: 0.9rem;
-    line-height: 1.7;
-}
-.brief-box h2, .brief-box h3 {
-    font-size: 1rem !important;
-    font-weight: 700 !important;
-    color: #1e3a5f !important;
-    margin-top: 16px !important;
-    margin-bottom: 6px !important;
-    border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 4px;
-}
-.brief-box ul { margin: 4px 0 8px 16px; }
-.brief-box li { margin-bottom: 4px; }
 
 /* Reason code pills */
 .rc-pill {
@@ -125,12 +104,10 @@ def load_model():
     path = os.path.join(IMPROVEMENT, "best_model_improved.joblib")
     return joblib.load(path)
 
-
 @st.cache_resource(show_spinner="Loading RAG pipeline…")
 def load_rag():
     from rag_pipeline import RAGPipeline
     return RAGPipeline()
-
 
 @st.cache_data(show_spinner="Loading data…")
 def load_all_data():
@@ -147,19 +124,16 @@ def load_all_data():
     data["feat_names"] = data["feature_names"]
     return data
 
-
 @st.cache_data(show_spinner="Scoring claims…")
 def score_claims(_model, X_val_t, X_test_t):
     val_prob  = _model.predict_proba(X_val_t)[:, 1]
     test_prob = _model.predict_proba(X_test_t)[:, 1]
     return val_prob, test_prob
 
-
 @st.cache_data
 def load_metadata():
     with open(os.path.join(IMPROVEMENT, "model_metadata.json")) as f:
         return json.load(f)
-
 
 @st.cache_data
 def load_shap_importance(_model, X_test_t, feat_names):
@@ -174,11 +148,9 @@ def load_shap_importance(_model, X_test_t, feat_names):
     }).sort_values("mean_abs_shap", ascending=False).reset_index(drop=True)
     return imp_df
 
-
 @st.cache_data
 def load_model_comparison():
     return pd.read_csv(os.path.join(IMPROVEMENT, "model_comparison_improved.csv"))
-
 
 @st.cache_data
 def load_shap_values(_model, X_val_t):
@@ -187,7 +159,6 @@ def load_shap_values(_model, X_val_t):
     explainer   = shap.TreeExplainer(_model)
     shap_values = explainer.shap_values(X_val_t)
     return explainer, shap_values
-
 
 # ══════════════════════════════════════════════════════════════
 # HELPERS
@@ -219,7 +190,6 @@ def compute_test_roi(test_prob, y_test,
         "roi_x":        roi_x,
     }
 
-
 def assign_bucket(score, pct_siu=0.05, pct_manual=0.15, all_scores=None):
     """
     Bucket a score against a reference population.
@@ -242,10 +212,8 @@ def assign_bucket(score, pct_siu=0.05, pct_manual=0.15, all_scores=None):
             return "Approve"
     return "Unknown"
 
-
 BUCKET_COLOR = {"SIU": "#e74c3c", "Manual Review": "#f39c12", "Approve": "#27ae60"}
 BUCKET_EMOJI = {"SIU": "🔴", "Manual Review": "🟡", "Approve": "🟢"}
-
 
 def make_reason_codes(shap_row, feat_names, cat_cols, top_n=5, feature_values=None):
     """
@@ -282,7 +250,6 @@ def make_reason_codes(shap_row, feat_names, cat_cols, top_n=5, feature_values=No
         })
     return codes
 
-
 def _citation_caption(result):
     """One-line grounding check for a generated brief.
 
@@ -303,14 +270,12 @@ def _citation_caption(result):
     return (f"⚠️ {len(check['invalid'])} unverified citation(s): "
             f"{check['invalid']} — not among the {check['n_passages']} retrieved")
 
-
 def row_values(X, i):
     """One row of a transformed matrix as a dense 1-D array (X may be sparse)."""
     row = X[i]
     if hasattr(row, "toarray"):
         row = row.toarray()
     return np.asarray(row).ravel()
-
 
 def build_waterfall(shap_row, feat_names, base_value, top_n=10):
     """Build a Plotly waterfall chart from SHAP values."""
@@ -344,7 +309,6 @@ def build_waterfall(shap_row, feat_names, base_value, top_n=10):
     )
     return fig
 
-
 # ══════════════════════════════════════════════════════════════
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════
@@ -377,7 +341,6 @@ def render_sidebar(metadata):
 
     return page
 
-
 # ══════════════════════════════════════════════════════════════
 # PAGE 1 — SUMMARY DASHBOARD
 # ══════════════════════════════════════════════════════════════
@@ -400,7 +363,6 @@ def page_summary(metadata, test_prob, y_test, shap_imp, model_comparison):
         - **ROI** — the estimated return on investment from catching fraud. Calculated as: (fraud losses prevented) ÷ (investigation costs).
         - **SHAP importance** — shows which claim features most influence the model's fraud score. Longer bar = more influential.
         """)
-
 
     # Compute ROI from test set (consistent with all other test set metrics)
     roi = compute_test_roi(test_prob, y_test)
@@ -678,7 +640,6 @@ def page_summary(metadata, test_prob, y_test, shap_imp, model_comparison):
         )
         st.plotly_chart(fig_cal, use_container_width=True)
 
-
 # ══════════════════════════════════════════════════════════════
 # PAGE 2 — REVIEW QUEUE
 # ══════════════════════════════════════════════════════════════
@@ -699,7 +660,6 @@ def page_queue(df_raw, test_prob, y_test):
         - Click **View Claim →** at the bottom to jump to the full detail view for any claim.
         - **Actual Fraud** column shows the ground truth — useful for evaluating model accuracy.
         """)
-
 
     all_scores = test_prob
     y_arr      = np.array(y_test)
@@ -774,7 +734,6 @@ def page_queue(df_raw, test_prob, y_test):
         st.session_state["page_override"] = "🔎 Claim Detail"
         st.rerun()
 
-
 # ══════════════════════════════════════════════════════════════
 # PAGE 3 — CLAIM DETAIL
 # ══════════════════════════════════════════════════════════════
@@ -794,7 +753,6 @@ def page_detail(df_raw, test_prob, y_test, shap_values, explainer,
         - **Triage Brief** — click the button to generate an AI-written investigation brief that cites specific internal fraud guidelines. Works without an OpenAI key using the template mode.
         - Use the **Rank** input to navigate between claims (Rank 1 = highest risk claim).
         """)
-
 
     all_scores = test_prob
     sorted_idx = np.argsort(test_prob)[::-1]
@@ -925,12 +883,12 @@ def page_detail(df_raw, test_prob, y_test, shap_values, explainer,
                 if i < len(result["passages"]):
                     st.divider()
 
-        # Render brief in styled container
-        st.markdown(
-            f'<div class="brief-box">{result["brief"]}</div>',
-            unsafe_allow_html=True,
-        )
-
+        # Rendered through st.markdown inside a bordered container, NOT injected
+        # into a raw <div>. Markdown nested inside a block-level HTML tag is not
+        # parsed, so the previous version printed "### Triage Brief" and
+        # "**Risk Score:**" literally — in both LLM and template modes.
+        with st.container(border=True):
+            st.markdown(result["brief"])
 
 # ══════════════════════════════════════════════════════════════
 # PAGE 4 — LIVE SCORING
@@ -952,7 +910,6 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
         - A **triage brief** is automatically generated with recommended investigation steps.
         - Try different combinations — for example, set Base Policy to "Liability", Police Report to "No", and Witness to "No" to see a high-risk scenario.
         """)
-
 
     from feature_engineering import (
         DAYS_POLICY_MAP, PAST_CLAIMS_MAP, AGE_VEHICLE_MAP,
@@ -1198,13 +1155,8 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
         )
     method_label = "🤖 GPT-4o-mini" if result["method"] == "llm" else "📋 Template"
     st.caption(f"Generated via: {method_label} · {_citation_caption(result)}")
-    st.markdown(
-        f'<div class="brief-box">{result["brief"]}</div>',
-        unsafe_allow_html=True,
-    )
-
-
-
+    with st.container(border=True):
+        st.markdown(result["brief"])
 
 # ══════════════════════════════════════════════════════════════
 # PAGE 5 — FAIRNESS ANALYSIS
@@ -1227,7 +1179,6 @@ def page_fairness(df_raw, test_prob, y_test):
         - Groups with fewer than 30 claims are excluded — small samples produce unreliable ratios.
         - 🟢 Green = no concern. 🔴 Red = potential bias worth investigating.
         """)
-
 
     from fairness_analysis import compute_fairness_report, DISPARATE_IMPACT_THRESHOLD
 
@@ -1405,7 +1356,6 @@ its modest SHAP contribution, the accuracy cost is likely to be small.
     else:
         st.success("✅ No disparate impact concerns detected across all demographic groups.")
 
-
 # ══════════════════════════════════════════════════════════════
 # PAGE 6 — MONITORING
 # ══════════════════════════════════════════════════════════════
@@ -1417,7 +1367,6 @@ def _run_monitoring_cached(raw_test, test_prob, y_arr, raw_train):
     from monitoring import run_monitoring
     return run_monitoring(raw_test, test_prob, y_arr,
                           reference_df=raw_train, write_outputs=False)
-
 
 def page_monitoring(df_raw, test_prob, y_test, raw_train):
     st.title("📡 Model Monitoring")
@@ -1439,7 +1388,6 @@ def page_monitoring(df_raw, test_prob, y_test, raw_train):
         - **Fraud Rate / Avg Risk Score per Batch** — sustained movement in either is the signal that would justify retraining.
         - ✅ Stable = no feature drifted after correction. ⚠️ Drift = at least one survived it.
         """)
-
 
     from monitoring import get_drift_summary, N_BATCHES
 
@@ -1550,7 +1498,6 @@ def page_monitoring(df_raw, test_prob, y_test, raw_train):
         use_container_width=True, hide_index=True,
     )
 
-
 # ══════════════════════════════════════════════════════════════
 # PAGE 7 — TEMPORAL ANALYSIS
 # ══════════════════════════════════════════════════════════════
@@ -1560,7 +1507,6 @@ def _run_temporal_cached(raw_test, test_prob, y_arr):
     """Cached, and write_outputs=False so viewing the page writes no CSVs."""
     from temporal_analysis import run_temporal_analysis
     return run_temporal_analysis(raw_test, test_prob, y_arr, write_outputs=False)
-
 
 def page_temporal(df_raw, test_prob, y_test):
     st.title("📅 Seasonality Analysis")
@@ -1584,7 +1530,6 @@ def page_temporal(df_raw, test_prob, y_test):
         - **Best/Worst Month** — computed only over months with a sufficient sample.
         - 🔵 Blue = best scored month. 🔴 Red = worst scored month.
         """)
-
 
     from temporal_analysis import get_temporal_summary
 
@@ -1736,7 +1681,6 @@ def page_temporal(df_raw, test_prob, y_test):
         use_container_width=True,
         hide_index=True,
     )
-
 
 # ══════════════════════════════════════════════════════════════
 # MAIN
@@ -2022,7 +1966,6 @@ labels["Fraud"] = (
        for fraud detection regardless of domain.
     """)
 
-
 # ══════════════════════════════════════════════════════════════
 def main():
     # Load everything
@@ -2083,7 +2026,6 @@ def main():
 
     elif page == "🗂️ Dataset Comparison":
         page_dataset_comparison()
-
 
 if __name__ == "__main__":
     main()

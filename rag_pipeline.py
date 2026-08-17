@@ -300,12 +300,24 @@ def generate_brief_llm(claim_data, reason_codes, passages, risk_score, triage_bu
 
 ## Instructions
 Write a 2-3 paragraph triage brief that:
-1. Summarizes the claim's key risk factors in plain language
+1. Summarizes what the listed factors say about this claim, in plain language.
+   Each factor is labelled "High risk" or "Low risk" — respect that labelling.
+   A factor marked Low risk is a reason the claim looks ROUTINE, not a concern.
 2. References specific policy guidelines that apply, citing them as [Source N].
    Only cite source numbers listed in the Relevant Policy Guidelines section above.
    Never cite a source number that was not provided.
-3. Recommends specific investigation steps based on the triage bucket
-4. Is suitable for a non-technical insurance claims reviewer
+3. Recommends specific next steps, consistent with the triage bucket above.
+4. Is suitable for a non-technical insurance claims reviewer.
+
+The tone must match the triage bucket:
+- SIU: this claim is being escalated for investigation. Lead with the concerns.
+- Manual Review: a human should verify specific details before approval. Lead
+  with what needs checking.
+- Approve: this claim looks routine and is heading for automated processing.
+  Lead with why it looks legitimate. Do not write it up as a fraud narrative,
+  and do not recommend an investigation the bucket does not call for. If there
+  is a residual concern worth noting, note it briefly and say it is not
+  sufficient to hold the claim.
 
 Keep the brief concise, professional, and actionable. Write for a claims investigator with no machine-learning background: do not mention SHAP, model scores, or numeric feature weights."""
 
