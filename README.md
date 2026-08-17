@@ -616,6 +616,7 @@ All 15,420 claims come from a single static 1994–96 collection that is split *
 | Batches ordered by **(Year, Month)** | Every calendar month contains claims from all three years (Jan is 43/34/23% across 1994/95/96), so ordering by month name alone interleaved years inside each batch |
 | `Year` and `RepNumber` **excluded** | `Year` is the batching key — testing it for drift is circular. `RepNumber` is a claims-rep identifier, not a distribution |
 | **Benjamini-Hochberg** correction | 5–6 batches × 5 features is ~30 hypothesis tests; at α=0.05 roughly 1.5 will fire by chance. A current run shows batch 5 flagging 1 feature at raw p<0.05 that the correction correctly removes — without it, the dashboard would report drift almost every run |
+| Verdict comes from the KS+BH path **regardless of environment** | Evidently is used only to render a supplementary HTML report; its own verdict is discarded. Previously Evidently's uncorrected numbers were used wherever it was installed, so the deployed Space and a local machine showed different tables under the same caption |
 
 ---
 

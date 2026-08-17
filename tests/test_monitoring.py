@@ -133,6 +133,54 @@ class TestMultipleComparisonCorrection:
         assert "f2" in result["drifted_features"]
 
 
+class TestDriftVerdictIsEnvironmentIndependent:
+    """
+    The drift verdict must come from the KS + Benjamini-Hochberg path whether or
+    not Evidently is installed.
+
+    It did not always. Evidently's numbers were returned when it was importable
+    and the KS+BH path ran only as a fallback, so the deployed Space (which has
+    Evidently) showed 1 drifted feature in three batches while a machine without
+    it showed 0 — under a caption claiming BH correction in both cases.
+    """
+
+    def _frames(self):
+        rng = np.random.default_rng(3)
+        ref = pd.DataFrame({f"f{i}": rng.normal(size=300) for i in range(5)})
+        cur = pd.DataFrame({f"f{i}": rng.normal(size=300) for i in range(5)})
+        return ref, cur
+
+    def test_report_always_carries_the_corrected_fields(self):
+        from monitoring import compute_drift_report
+        ref, cur = self._frames()
+        out = compute_drift_report(ref, cur, feature_cols=list(ref.columns),
+                                   batch_label="t", write_html=False)
+        # These keys exist only on the KS+BH path; Evidently's branch never had them
+        assert "n_drifted_uncorrected" in out
+        assert "tested_features" in out
+        assert out["n_drifted_features"] <= out["n_drifted_uncorrected"]
+
+    def test_matches_the_manual_check_exactly(self):
+        from monitoring import _manual_drift_check, compute_drift_report
+        ref, cur = self._frames()
+        direct = _manual_drift_check(ref, cur, list(ref.columns), "t")
+        viaapi = compute_drift_report(ref, cur, feature_cols=list(ref.columns),
+                                      batch_label="t", write_html=False)
+        for key in ("dataset_drift", "n_drifted_features",
+                    "n_drifted_uncorrected", "n_features", "drift_share"):
+            assert viaapi[key] == direct[key], key
+
+    def test_html_generation_never_changes_the_verdict(self):
+        from monitoring import compute_drift_report
+        ref, cur = self._frames()
+        without = compute_drift_report(ref, cur, feature_cols=list(ref.columns),
+                                       batch_label="t", write_html=False)
+        with_html = compute_drift_report(ref, cur, feature_cols=list(ref.columns),
+                                         batch_label="t", write_html=True)
+        assert without["dataset_drift"] == with_html["dataset_drift"]
+        assert without["n_drifted_features"] == with_html["n_drifted_features"]
+
+
 class TestSeasonalitySampleGuard:
 
     def _month(self, n, n_fraud, seed=0):
