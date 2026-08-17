@@ -17,8 +17,8 @@ Thank you for your interest in contributing. This guide explains how to set up t
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Mriks42/insurance-claims-risk-triage.git
-cd insurance-claims-risk-triage
+git clone https://github.com/Mriks42/Insurance-Claims-Risk-Triage-.git
+cd Insurance-Claims-Risk-Triage-
 ```
 
 ### 2. Install dependencies
