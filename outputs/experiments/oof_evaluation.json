@@ -1,0 +1,54 @@
+{
+  "n_claims": 15420,
+  "n_fraud": 923,
+  "base_fraud_rate": 0.0599,
+  "folds": 5,
+  "per_fold_pr_auc": [
+    0.2744,
+    0.2748,
+    0.2631,
+    0.3107,
+    0.3226
+  ],
+  "pr_auc": 0.2877,
+  "pr_auc_ci_95": [
+    0.2608,
+    0.3159
+  ],
+  "pr_auc_ci_width": 0.0551,
+  "roc_auc": 0.8585,
+  "buckets": {
+    "SIU": {
+      "count": 771,
+      "fraud": 240,
+      "fraud_rate": 0.3113,
+      "enrichment": 5.2
+    },
+    "Manual Review": {
+      "count": 2313,
+      "fraud": 374,
+      "fraud_rate": 0.1617,
+      "enrichment": 2.7
+    },
+    "Approve": {
+      "count": 12336,
+      "fraud": 309,
+      "fraud_rate": 0.025,
+      "enrichment": 0.42
+    }
+  },
+  "recall_at_20pct": 0.6652,
+  "roi": {
+    "fraud_caught": 614,
+    "savings_usd": 9210000,
+    "costs_usd": 616800,
+    "net_benefit": 8593200,
+    "roi_x": 14.93
+  },
+  "runtime_seconds": 11.5,
+  "caveats": [
+    "OOF predictions come from k different models; no single deployed artifact corresponds to this score.",
+    "Hyperparameters were tuned on ~80% of these rows, so the estimate carries mild optimism. Nested CV would remove it.",
+    "The deployed model's honest number remains the held-out test PR-AUC."
+  ]
+}

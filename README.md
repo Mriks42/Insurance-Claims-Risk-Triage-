@@ -62,6 +62,7 @@ An end-to-end fraud triage system for automotive insurance claims that:
 - [Tests](#tests)
 - [Critical Finding: Data Leakage](#critical-finding-data-leakage)
 - [Model Performance](#model-performance)
+- [Model Selection and Evaluation Experiments](#model-selection-and-evaluation-experiments)
 - [Dataset Comparison](#dataset-comparison)
 - [Fairness Analysis](#fairness-analysis)
 - [Model Monitoring](#model-monitoring)
@@ -98,16 +99,26 @@ FSE 570 Capstone Project/
 ├── medicare_comparison.py        # Medicare vs. auto insurance EDA + comparison plots
 ├── medicare_modeling.py          # XGBoost + Optuna pipeline on Medicare provider fraud data
 │
+├── api/                          # FastAPI scoring service (schemas + endpoints)
+├── scripts/                      # Reproducible experiments and benchmarks
+│   ├── model_bakeoff.py          # Model comparison + feature ablation (repeated CV)
+│   ├── evaluate_oof.py           # Out-of-fold evaluation over all 15,420 claims
+│   └── benchmark_api.py          # Serving latency: p50/p95/p99, cold start
+│
 ├── requirements.txt              # Python dependencies
 ├── .env.example                  # Template for OpenAI API key
 ├── pytest.ini                    # Test configuration
-├── Dockerfile                    # Container definition
+├── Dockerfile                    # Dashboard container
+├── Dockerfile.api                # Serving container (no training deps)
 ├── docker-compose.yml            # App + MLflow server
 │
 ├── tests/
 │   ├── test_feature_engineering.py   # 30+ feature engineering tests
 │   ├── test_preprocessing.py         # Data split, preprocessor, validation tests
 │   ├── test_modeling_utils.py        # Triage bucket, ROI, reason code tests
+│   ├── test_monitoring.py            # Batch ordering, drift exclusions, BH correction
+│   ├── test_fairness.py              # Disparate impact reference group, age binning
+│   ├── test_api.py                   # Endpoints, validation, train/serve skew guard
 │   └── test_rag_pipeline.py          # Chunking, query building, brief generation tests
 │
 ├── .github/
@@ -135,7 +146,9 @@ FSE 570 Capstone Project/
     ├── rag/                      # Persistent ChromaDB index + demo triage briefs
     ├── fairness/                 # Disparate impact charts and CSVs
     ├── monitoring/               # Batch statistics, drift summary, trend charts
-    └── temporal/                 # Monthly metrics CSV and performance charts
+    ├── temporal/                 # Monthly metrics CSV and performance charts
+    ├── experiments/              # Model bake-off, ablation, out-of-fold evaluation
+    └── serving/                  # API latency benchmark
 ```
 
 ---
@@ -714,6 +727,8 @@ Three items in the table above are narrower than they sound, and it is better to
 | `outputs/metrics/` | Model comparison CSV, triage results, ROI JSON |
 | `outputs/models/` | Serialized base models |
 | `outputs/shap/` | Global importance, beeswarm plot, reason codes |
+| `outputs/experiments/` | Model bake-off, feature ablation and out-of-fold evaluation results |
+| `outputs/serving/` | API latency benchmark |
 | `outputs/improvement/` | Optuna results, best model, model_metadata.json, triage_summary.json (val + test buckets and ROI) |
 | `outputs/rag/` | ChromaDB index, demo triage briefs |
 | `outputs/fairness/` | Disparate impact charts and CSVs per demographic group |
@@ -738,6 +753,76 @@ Three items in the table above are narrower than they sound, and it is better to
 **Processing:** 4 files joined on Provider ID, claim-level data aggregated to provider-level feature matrix (5,410 × 22), missing values filled with zero
 
 The two datasets are intentionally heterogeneous — different domains, different schemas, different fraud mechanisms — satisfying the requirement for multi-source data analysis.
+
+---
+
+## Model Selection and Evaluation Experiments
+
+Two reproducible experiments back the modelling claims. Both write JSON to `outputs/experiments/`, and neither touches the deployed model.
+
+```bash
+python scripts/model_bakeoff.py      # is there a better model? do the features earn their place?
+python scripts/evaluate_oof.py       # how good is the pipeline, measured on all 15,420 claims?
+```
+
+### Is there a better model than the tuned XGBoost?
+
+Repeated stratified CV (5-fold × 2) on the training split. The test split is never touched — selection happens on train only.
+
+| Model | CV PR-AUC | vs XGBoost | Folds won |
+|-------|----------:|-----------:|----------:|
+| **XGBoost (Optuna)** | **0.2716 ± 0.0241** | — | — |
+| CatBoost (native categoricals, Optuna) | 0.2526 ± 0.0289 | −0.0190 | 1/10 |
+| HistGradientBoosting | 0.2523 ± 0.0146 | −0.0193 | 1/10 |
+| CatBoost (one-hot input) | 0.2422 ± 0.0267 | −0.0293 | 1/10 |
+| LightGBM | 0.2366 ± 0.0195 | −0.0350 | 1/10 |
+| RandomForest | 0.2250 ± 0.0218 | −0.0466 | 0/10 |
+| ExtraTrees | 0.2065 ± 0.0225 | −0.0651 | 0/10 |
+| LogisticRegression | 0.1587 ± 0.0133 | −0.1130 | 0/10 |
+
+CatBoost is measured twice on purpose. Given one-hot input it is handicapped, because native categorical handling is its main advantage; given the raw frame and its own tuned parameters it improves to 0.2526 — still short.
+
+**Ensembles lose too**, which is why the OOF stack is slated for removal rather than repair:
+
+| Rank-average ensemble | CV PR-AUC | vs XGBoost | Folds won |
+|---|---:|---:|---:|
+| XGB + HistGB | 0.2642 | −0.0074 | 2/10 |
+| XGB + LightGBM | 0.2562 | −0.0154 | 1/10 |
+| XGB + HistGB + LightGBM | 0.2572 | −0.0143 | 1/10 |
+
+> **Stated caveat:** only XGBoost and CatBoost use tuned hyperparameters; the other families run near-default. This answers *"is there an easy win from switching model family?"* — no — rather than *"is XGBoost intrinsically superior?"*
+
+### Do the 41 engineered features earn their place?
+
+| Feature set | Columns | CV PR-AUC |
+|---|---:|---:|
+| Raw originals only | 147 | 0.2577 ± 0.0238 |
+| **Current (replaced categoricals → numerics + engineered)** | **90** | **0.2716 ± 0.0241** |
+| Originals *and* engineered together | 188 | 0.2618 ± 0.0231 |
+| Pruned to non-zero SHAP | 70 | 0.2708 ± 0.0225 |
+
+**Feature engineering is worth +0.0138 PR-AUC, winning 8 of 10 folds** — real and consistent, but modest. Two further findings:
+
+- Keeping the original categoricals *alongside* their numeric encodings is **worse** than replacing them, which validates the `REPLACED_CATEGORICALS` design.
+- Pruning to the 70 features with non-zero SHAP is statistically indistinguishable (−0.0008, 5/10 folds). **20 of 90 features contribute nothing measurable** and can be dropped at no cost.
+
+### How good is the model on all 15,420 claims?
+
+The headline test metric rests on 1,542 claims holding 92 fraud cases, giving a 95% CI about 0.16 wide — wide enough that the tuned model is not statistically distinguishable from the uncorrected baseline. Out-of-fold prediction scores every claim by a model that never saw it, using all 923 fraud cases:
+
+| | Test split | Full dataset, out-of-fold |
+|---|---:|---:|
+| Claims evaluated | 1,542 | 15,420 |
+| Fraud cases | 92 | 923 |
+| PR-AUC | 0.2443 | **0.2877** |
+| 95% CI | [0.170, 0.327] | **[0.261, 0.316]** |
+| CI width | 0.156 | **0.055** (2.8× narrower) |
+| SIU enrichment | 4.57× | 5.20× |
+| Recall in flagged top 20% | 59.8% | 66.5% |
+
+The two estimates agree — each sits inside the other's interval; the small holdout simply drew a slightly harder sample. Per-fold PR-AUC ranges 0.263–0.323 on identical configuration, which is the sampling noise made visible.
+
+**They answer different questions.** Out-of-fold measures *the pipeline* and is the better-powered number. Test measures *the artifact you deployed* and is what the dashboard, the API and the model card quote. Two caveats travel with the OOF figure: it comes from five different models, so no single artifact corresponds to it; and the hyperparameters were tuned on ~80% of these same rows, so it carries mild optimism that only nested CV would remove.
 
 ---
 
