@@ -154,7 +154,7 @@ class TestDriftVerdictIsEnvironmentIndependent:
         from monitoring import compute_drift_report
         ref, cur = self._frames()
         out = compute_drift_report(ref, cur, feature_cols=list(ref.columns),
-                                   batch_label="t", write_html=False)
+                                   batch_label="t")
         # These keys exist only on the KS+BH path; Evidently's branch never had them
         assert "n_drifted_uncorrected" in out
         assert "tested_features" in out
@@ -165,20 +165,31 @@ class TestDriftVerdictIsEnvironmentIndependent:
         ref, cur = self._frames()
         direct = _manual_drift_check(ref, cur, list(ref.columns), "t")
         viaapi = compute_drift_report(ref, cur, feature_cols=list(ref.columns),
-                                      batch_label="t", write_html=False)
+                                      batch_label="t")
         for key in ("dataset_drift", "n_drifted_features",
                     "n_drifted_uncorrected", "n_features", "drift_share"):
             assert viaapi[key] == direct[key], key
 
-    def test_html_generation_never_changes_the_verdict(self):
-        from monitoring import compute_drift_report
+    def test_no_optional_dependency_can_alter_the_result(self):
+        """
+        There is exactly one code path. The previous design branched on whether
+        Evidently imported, which is how two environments reached different
+        verdicts from identical code — so assert the branch no longer exists.
+        """
+        import inspect
+
+        import monitoring
+        source = inspect.getsource(monitoring.compute_drift_report)
+        # The docstring still explains the history, so check for the mechanism
+        # rather than the word: no optional import, no branch.
+        assert "import evidently" not in source
+        assert "from evidently" not in source
+        assert "try:" not in source
+
         ref, cur = self._frames()
-        without = compute_drift_report(ref, cur, feature_cols=list(ref.columns),
-                                       batch_label="t", write_html=False)
-        with_html = compute_drift_report(ref, cur, feature_cols=list(ref.columns),
-                                         batch_label="t", write_html=True)
-        assert without["dataset_drift"] == with_html["dataset_drift"]
-        assert without["n_drifted_features"] == with_html["n_drifted_features"]
+        a = monitoring.compute_drift_report(ref, cur, list(ref.columns), "t")
+        b = monitoring.compute_drift_report(ref, cur, list(ref.columns), "t")
+        assert a == b                          # deterministic
 
 
 class TestSeasonalitySampleGuard:

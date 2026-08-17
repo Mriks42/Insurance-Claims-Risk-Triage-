@@ -86,16 +86,31 @@ def create_batches(df_raw, risk_scores, y_true, n_batches=N_BATCHES):
 # Per-batch statistics
 # ============================================================
 def batch_statistics(batch):
-    """Compute key statistics for a single batch."""
+    """
+    Compute key statistics for a single batch.
+
+    Buckets are assigned by RANK, matching compute_triage_summary(), the API and
+    the Summary dashboard. np.percentile interpolates between neighbouring
+    scores, which put 13 claims in a "top 5%" bucket of 257 where the rank cut
+    takes 12 — a small discrepancy, but the whole point of standardising on rank
+    was that one definition drives every surface.
+    """
     scores = batch["risk_scores"]
     y      = batch["y_true"]
 
     from config import PCT_SIU, PCT_MANUAL
-    siu_thresh    = np.percentile(scores, 100 * (1 - PCT_SIU))
-    manual_thresh = np.percentile(scores, 100 * (1 - PCT_SIU - PCT_MANUAL))
+    n          = len(scores)
+    siu_cut    = int(PCT_SIU * n)
+    manual_cut = int((PCT_SIU + PCT_MANUAL) * n)
 
-    siu_mask    = scores >= siu_thresh
-    manual_mask = (scores >= manual_thresh) & ~siu_mask
+    rank_of = np.empty(n, dtype=int)
+    rank_of[np.argsort(scores)[::-1]] = np.arange(n)
+    siu_mask    = rank_of < siu_cut
+    manual_mask = (rank_of >= siu_cut) & (rank_of < manual_cut)
+
+    ordered       = np.sort(scores)[::-1]
+    siu_thresh    = float(ordered[max(0, siu_cut - 1)])
+    manual_thresh = float(ordered[max(0, manual_cut - 1)])
 
     return {
         "batch_id":       batch["batch_id"],
@@ -118,8 +133,7 @@ def batch_statistics(batch):
 # Drift detection (KS test + Benjamini-Hochberg)
 # ============================================================
 def compute_drift_report(reference_df, current_df, feature_cols,
-                          save_dir=MONITORING_DIR, batch_label="batch",
-                          write_html=False):
+                          batch_label="batch"):
     """
     Compute data drift between reference (training) and current (batch) data.
 
@@ -137,8 +151,6 @@ def compute_drift_report(reference_df, current_df, feature_cols,
     Evidently has been removed rather than demoted to HTML rendering: it was no
     longer load-bearing, and an unused dependency that can silently change
     behaviour is worse than no dependency.
-
-    write_html is retained for signature compatibility and is ignored.
 
     Returns drift summary dict.
     """
@@ -261,9 +273,6 @@ def run_monitoring(df_raw, risk_scores, y_true, reference_df=None,
             ref_df, batch["df"],
             feature_cols=num_feature_cols,
             batch_label=batch["label"].replace(" ", "_").lower(),
-            # Rendering six HTML reports on every dashboard page view would be
-            # a side effect of looking at a page; only the standalone run writes.
-            write_html=write_outputs,
         )
         drift_results.append(drift)
         status = "⚠️ DRIFT" if drift["dataset_drift"] else "✅ Stable"
