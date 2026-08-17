@@ -191,22 +191,30 @@ class TestTemplateBrief:
         )
         assert "Source" in brief
 
-    def test_generate_brief_returns_tuple(self, sample_claim, sample_reason_codes, sample_passages):
+    def test_generate_brief_returns_brief_method_and_citation_check(
+            self, sample_claim, sample_reason_codes, sample_passages):
         from rag_pipeline import generate_brief
         # No OpenAI key set → should use template
         os.environ.pop("OPENAI_API_KEY", None)
-        brief, method = generate_brief(
+        brief, method, citation_check = generate_brief(
             sample_claim, sample_reason_codes, sample_passages,
             risk_score=0.65, triage_bucket="SIU"
         )
         assert isinstance(brief, str)
         assert method in ["llm", "template"]
+        # Every brief is checked for fabricated [Source N] references, whichever
+        # path produced it — see rag_pipeline.verify_citations.
+        assert set(citation_check) >= {"cited", "valid", "invalid", "ok"}
 
     def test_template_fallback_when_no_api_key(self, sample_claim, sample_reason_codes, sample_passages):
         from rag_pipeline import generate_brief
         os.environ.pop("OPENAI_API_KEY", None)
-        brief, method = generate_brief(
+        brief, method, citation_check = generate_brief(
             sample_claim, sample_reason_codes, sample_passages,
             risk_score=0.65, triage_bucket="SIU"
         )
         assert method == "template"
+        # The template numbers the passages it was handed, so its citations are
+        # correct by construction and must never be flagged.
+        assert citation_check["ok"] is True
+        assert citation_check["invalid"] == []

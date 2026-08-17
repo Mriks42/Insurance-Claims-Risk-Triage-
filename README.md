@@ -472,7 +472,7 @@ In regulated industries like insurance, an audit trail of model decisions is oft
 
 ## Tests
 
-The project has 156 automated test functions across 8 files, covering all core modules. Tests run automatically on every GitHub push via CI, and again as the gate on the deploy workflow — the full suite in both, with identical invocations so the gate can never disagree with the badge.
+The project has 173 automated tests across 8 files, covering all core modules. Tests run automatically on every GitHub push via CI, and again as the gate on the deploy workflow — the full suite in both, with identical invocations so the gate can never disagree with the badge.
 
 ```bash
 pytest tests/           # run all tests
