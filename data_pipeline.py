@@ -207,7 +207,17 @@ def score_claims_frame(raw_df, artifacts):
     """
     import numpy as np
 
-    eng = engineer_features(raw_df.copy())
+    bundle_cfg = artifacts.get("bundle", {})
+
+    raw_df = raw_df.copy()
+    # Each bundle records the data conventions it was trained under, so a v1 and
+    # a v2 model can be served side by side without one silently inheriting the
+    # other's preprocessing.
+    if bundle_cfg.get("age_imputation", False):
+        from feature_engineering import impute_missing_age
+        raw_df = impute_missing_age(raw_df)
+
+    eng = engineer_features(raw_df)
     X = eng.drop(columns=[c for c in [TARGET] + COLS_TO_DROP if c in eng.columns],
                  errors="ignore")
     X = X.drop(columns=[c for c in REPLACED_CATEGORICALS if c in X.columns])
@@ -226,7 +236,17 @@ def score_claims_frame(raw_df, artifacts):
             X[col] = 0
     X = X[cat_cols + num_cols]
 
-    X_t  = pre.transform(X)
+    X_t = pre.transform(X)
+
+    # A pruned model consumes a subset of the preprocessor's output. The kept
+    # column names live in the bundle so serving selects exactly what training
+    # selected, in the same order.
+    selected = bundle_cfg.get("selected_feature_names")
+    if selected:
+        all_names = bundle_cfg["feature_names"]
+        idx = [all_names.index(n) for n in selected]
+        X_t = X_t[:, idx]
+
     prob = artifacts["model"].predict_proba(X_t)[:, 1]
     return np.asarray(prob), X_t
 

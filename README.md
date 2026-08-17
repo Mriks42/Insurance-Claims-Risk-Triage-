@@ -63,6 +63,7 @@ An end-to-end fraud triage system for automotive insurance claims that:
 - [Critical Finding: Data Leakage](#critical-finding-data-leakage)
 - [Model Performance](#model-performance)
 - [Model Selection and Evaluation Experiments](#model-selection-and-evaluation-experiments)
+- [Model v2](#model-v2--the-fixes-this-projects-own-analysis-produced)
 - [Dataset Comparison](#dataset-comparison)
 - [Fairness Analysis](#fairness-analysis)
 - [Model Monitoring](#model-monitoring)
@@ -103,6 +104,7 @@ FSE 570 Capstone Project/
 ├── scripts/                      # Reproducible experiments and benchmarks
 │   ├── model_bakeoff.py          # Model comparison + feature ablation (repeated CV)
 │   ├── evaluate_oof.py           # Out-of-fold evaluation over all 15,420 claims
+│   ├── train_v2.py               # v2 retrain: Age fix, pruned features, no stack
 │   └── benchmark_api.py          # Serving latency: p50/p95/p99, cold start
 │
 ├── requirements.txt              # Python dependencies
@@ -147,6 +149,7 @@ FSE 570 Capstone Project/
     ├── fairness/                 # Disparate impact charts and CSVs
     ├── monitoring/               # Batch statistics, drift summary, trend charts
     ├── temporal/                 # Monthly metrics CSV and performance charts
+    ├── improvement_v2/          # v2 model, preprocessor, serving bundle
     ├── experiments/              # Model bake-off, ablation, out-of-fold evaluation
     └── serving/                  # API latency benchmark
 ```
@@ -823,6 +826,41 @@ The headline test metric rests on 1,542 claims holding 92 fraud cases, giving a 
 The two estimates agree — each sits inside the other's interval; the small holdout simply drew a slightly harder sample. Per-fold PR-AUC ranges 0.263–0.323 on identical configuration, which is the sampling noise made visible.
 
 **They answer different questions.** Out-of-fold measures *the pipeline* and is the better-powered number. Test measures *the artifact you deployed* and is what the dashboard, the API and the model card quote. Two caveats travel with the OOF figure: it comes from five different models, so no single artifact corresponds to it; and the hyperparameters were tuned on ~80% of these same rows, so it carries mild optimism that only nested CV would remove.
+
+---
+
+## Model v2 — the fixes this project's own analysis produced
+
+`scripts/train_v2.py` trains a second model bundling four corrections, saved to
+`outputs/improvement_v2/` **alongside** v1 rather than replacing it. v1 remains the
+deployed model, so every published figure stays true and v2 is promoted only if it earns it.
+
+| Change | Why |
+|--------|-----|
+| Impute `Age == 0` from `AgeOfPolicyHolder` | 320 rows carry the sentinel, all in the "16 to 17" band. Uncorrected it also zeroes `Age_x_Deductible` and `Age_x_PastClaims` (SHAP ranks 17 and 13 of 90) |
+| Prune 90 → 70 features | 20 features have mean \|SHAP\| of exactly zero; no tree splits on them |
+| Remove the OOF stack and CatBoost arm | The bake-off found no family within 0.019 of XGBoost, and every ensemble lost |
+| Fit at a fixed tree budget instead of early-stopping on validation | v1 early-stops on the split it then reports, which inflates its validation number |
+
+### Result
+
+| Metric | v1 | v2 | Δ |
+|--------|---:|---:|---:|
+| Features | 90 | **70** | −20 |
+| Validation PR-AUC | 0.3223 | **0.3041** | −0.0182 |
+| Test PR-AUC | 0.2443 | 0.2363 | −0.0080 |
+| Test ROC-AUC | 0.8331 | **0.8388** | +0.0057 |
+| SIU fraud rate | 0.2727 | 0.2727 | 0.0000 |
+| SIU enrichment | 4.57× | 4.57× | 0.0000 |
+| Net benefit | $763,400 | **$793,400** | +$30,000 |
+
+Test confidence intervals overlap almost entirely — [0.170, 0.327] against [0.170, 0.315] — so the difference in test PR-AUC is **not statistically distinguishable**.
+
+**The validation drop is the point.** −0.0182 is v1's inflation being removed: v1 early-stops on validation and then reports validation. v2 never sees that split during fitting, so 0.3041 is defensible in a way 0.3223 was not. Meanwhile the SIU tier is byte-identical and the flagged 20% catches two more fraud cases.
+
+The honest summary: **the fixes are performance-neutral**. Their value is a model with no known data defect, a 22% smaller feature space, no decorative ensemble, and an uninflated validation metric.
+
+> One failure is documented in the script rather than quietly fixed. The first v2 run early-stopped on an inner training holdout while Optuna had scored candidates at a fixed 400-tree budget with no early stopping. At the learning rate Optuna chose (0.012), fifty rounds of near-flat progress read as "no improvement" and the model stopped at **2 trees**, scoring 0.2074. That is the same defect as the OOF stack — a selection procedure and a final fit that disagree — and it is worth keeping visible.
 
 ---
 

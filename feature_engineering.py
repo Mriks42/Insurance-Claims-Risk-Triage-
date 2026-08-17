@@ -60,6 +60,49 @@ AGE_POLICY_HOLDER_MAP = {
     "over 65": 70,
 }
 
+def impute_missing_age(df):
+    """
+    Replace the Age == 0 sentinel with a value derived from AgeOfPolicyHolder.
+
+    320 of 15,420 rows (2.1%) carry Age == 0. The minimum genuine age in the
+    file is 16, and every one of those 320 rows has AgeOfPolicyHolder ==
+    "16 to 17" — so the real age is recorded, just in a different column.
+
+    Left uncorrected, those rows do not merely lose the Age feature: they
+    silently zero out Age_x_Deductible and Age_x_PastClaims, which rank 17th and
+    13th of 90 by mean |SHAP|. The model reads "this policyholder has no age and
+    no age-weighted claim history" rather than "this is a 16-year-old".
+
+    OPT-IN by design. Applying it unconditionally would change the features
+    under the already-trained v1 model, whose published metrics assume the
+    uncorrected data. The v2 training run turns it on; v1 keeps the old
+    behaviour, and each serving bundle records which convention it was built
+    with.
+
+    Returns a copy with Age imputed, leaving every other column alone.
+    """
+    df = df.copy()
+    if "Age" not in df.columns:
+        return df
+
+    sentinel = df["Age"] == 0
+    if not sentinel.any():
+        return df
+
+    # Band midpoints are fractional (16 to 17 -> 16.5), and Age arrives as int64.
+    # pandas 3 raises rather than silently upcasting, so widen the column first.
+    df["Age"] = df["Age"].astype(float)
+
+    if "AgeOfPolicyHolder" in df.columns:
+        midpoints = df.loc[sentinel, "AgeOfPolicyHolder"].map(AGE_POLICY_HOLDER_MAP)
+        # Fall back to the youngest genuine age if the band is missing too
+        df.loc[sentinel, "Age"] = midpoints.fillna(16.5).values
+    else:
+        df.loc[sentinel, "Age"] = 16.5
+
+    return df
+
+
 def derive_age_band(age):
     """
     Map a numeric age onto the AgeOfPolicyHolder band the raw dataset uses.
