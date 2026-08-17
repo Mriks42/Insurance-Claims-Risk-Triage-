@@ -283,6 +283,27 @@ def make_reason_codes(shap_row, feat_names, cat_cols, top_n=5, feature_values=No
     return codes
 
 
+def _citation_caption(result):
+    """One-line grounding check for a generated brief.
+
+    An LLM can cite [Source 4] when only three passages were retrieved. The
+    brief is what an investigator acts on, so a fabricated citation is the
+    failure that matters here — it is indistinguishable from a real one to the
+    reader. verify_citations() checks each reference points at a passage that
+    was actually supplied; invalid ones are relabelled UNVERIFIED in the text.
+    """
+    check = result.get("citation_check")
+    if not check:
+        return "citations unchecked"
+    if not check["cited"]:
+        return f"no citations · {check['n_passages']} passages retrieved"
+    if check["ok"]:
+        return (f"✅ {len(check['valid'])}/{len(check['cited'])} citations verified "
+                f"against {check['n_passages']} retrieved passages")
+    return (f"⚠️ {len(check['invalid'])} unverified citation(s): "
+            f"{check['invalid']} — not among the {check['n_passages']} retrieved")
+
+
 def row_values(X, i):
     """One row of a transformed matrix as a dense 1-D array (X may be sparse)."""
     row = X[i]
@@ -895,7 +916,7 @@ def page_detail(df_raw, test_prob, y_test, shap_values, explainer,
                 triage_bucket=bucket,
             )
         method_label = "🤖 GPT-4o-mini" if result["method"] == "llm" else "📋 Template"
-        st.caption(f"Generated via: {method_label}")
+        st.caption(f"Generated via: {method_label} · {_citation_caption(result)}")
 
         with st.expander("📚 Retrieved Guideline Passages", expanded=False):
             for i, p in enumerate(result["passages"], 1):
@@ -1176,7 +1197,7 @@ def page_live(model, preprocessor, cat_cols, num_cols, feat_names, rag, all_scor
             triage_bucket=bucket,
         )
     method_label = "🤖 GPT-4o-mini" if result["method"] == "llm" else "📋 Template"
-    st.caption(f"Generated via: {method_label}")
+    st.caption(f"Generated via: {method_label} · {_citation_caption(result)}")
     st.markdown(
         f'<div class="brief-box">{result["brief"]}</div>',
         unsafe_allow_html=True,

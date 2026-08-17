@@ -22,6 +22,7 @@ Environment variables:
 """
 
 import os
+import re
 import sys
 import glob
 import json
@@ -266,8 +267,19 @@ def generate_brief_llm(claim_data, reason_codes, passages, risk_score, triage_bu
         context_parts.append(f"[Source {i}: {p['source']}]\n{p['text']}")
     context = "\n\n".join(context_parts)
 
-    # Build reason codes text
-    reasons_text = "\n".join(f"- {rc}" for rc in reason_codes)
+    # Build reason codes text.
+    # SHAP magnitudes and [INTENSITY] tags are stripped before they reach the
+    # model. The brief is written for a claims investigator, and the model
+    # echoes whatever it is handed — previously producing prose like "a strong
+    # indicator of potential fraud risk (SHAP: +1.7181)". The numbers belong on
+    # the dashboard next to the waterfall chart; the prompt gets the driver in
+    # plain English.
+    cleaned_reasons = [
+        re.sub(r"\s*\(SHAP:[^)]*\)", "",
+               re.sub(r"^\[[A-Z]+\]\s*", "", rc)).strip()
+        for rc in reason_codes
+    ]
+    reasons_text = "\n".join(f"- {rc}" for rc in cleaned_reasons)
 
     # Build claim summary
     claim_summary = ", ".join(f"{k}: {v}" for k, v in claim_data.items()) if claim_data else "No claim data available"
@@ -289,11 +301,13 @@ def generate_brief_llm(claim_data, reason_codes, passages, risk_score, triage_bu
 ## Instructions
 Write a 2-3 paragraph triage brief that:
 1. Summarizes the claim's key risk factors in plain language
-2. References specific policy guidelines that apply (cite as [Source N])
+2. References specific policy guidelines that apply, citing them as [Source N].
+   Only cite source numbers listed in the Relevant Policy Guidelines section above.
+   Never cite a source number that was not provided.
 3. Recommends specific investigation steps based on the triage bucket
 4. Is suitable for a non-technical insurance claims reviewer
 
-Keep the brief concise, professional, and actionable."""
+Keep the brief concise, professional, and actionable. Write for a claims investigator with no machine-learning background: do not mention SHAP, model scores, or numeric feature weights."""
 
     try:
         response = client.chat.completions.create(
@@ -394,21 +408,78 @@ def generate_brief_template(claim_data, reason_codes, passages, risk_score, tria
     return "\n".join(lines)
 
 
+CITATION_PATTERN = re.compile(r"\[Source\s+(\d+)", re.IGNORECASE)
+
+
+def verify_citations(brief, passages):
+    """
+    Check that every [Source N] in a generated brief refers to a passage that
+    was actually retrieved.
+
+    The template builder cannot get this wrong — it numbers the passages it was
+    handed. An LLM can: it may cite [Source 4] when four passages were never
+    supplied, or attribute a rule to the wrong document. The brief is shown to
+    an investigator as grounds for escalating a claim, so an invented citation
+    is the failure that matters most on that page — it looks exactly like a real
+    one.
+
+    This does not verify that the cited passage SUPPORTS the sentence it is
+    attached to; that would need a separate entailment check. It verifies the
+    citation points at something real, which is the cheap and checkable half.
+
+    Returns a dict:
+        cited          - source numbers referenced in the brief
+        valid          - those within range of the retrieved passages
+        invalid        - those that are not (hallucinated)
+        n_passages     - how many were actually supplied
+        ok             - True when nothing was invented
+    """
+    cited = sorted({int(n) for n in CITATION_PATTERN.findall(brief or "")})
+    n = len(passages or [])
+    valid = [c for c in cited if 1 <= c <= n]
+    invalid = [c for c in cited if c < 1 or c > n]
+    return {
+        "cited":      cited,
+        "valid":      valid,
+        "invalid":    invalid,
+        "n_passages": n,
+        "ok":         not invalid,
+    }
+
+
+def annotate_invalid_citations(brief, check):
+    """Mark hallucinated citations inline rather than deleting them.
+
+    Silently stripping them would hide that the model fabricated a reference —
+    the reader would see a fluent, unsourced assertion and have no reason to
+    doubt it. Flagging keeps the failure visible to the person who has to act.
+    """
+    if check["ok"]:
+        return brief
+    out = brief
+    for bad in check["invalid"]:
+        out = re.sub(rf"\[Source\s+{bad}\b", f"[UNVERIFIED Source {bad}", out,
+                     flags=re.IGNORECASE)
+    return out
+
+
 def generate_brief(claim_data, reason_codes, passages, risk_score, triage_bucket):
     """
     Generate a triage brief. Tries LLM first, falls back to template.
-    Returns (brief_text, method_used).
+
+    Returns (brief_text, method_used, citation_check).
     """
-    # Try LLM first
     llm_brief = generate_brief_llm(claim_data, reason_codes, passages, risk_score, triage_bucket)
     if llm_brief:
-        return llm_brief, "llm"
+        check = verify_citations(llm_brief, passages)
+        return annotate_invalid_citations(llm_brief, check), "llm", check
 
-    # Fall back to template
+    # Fall back to template — its citations are generated from the passage list
+    # itself, so they are correct by construction.
     template_brief = generate_brief_template(
         claim_data, reason_codes, passages, risk_score, triage_bucket
     )
-    return template_brief, "template"
+    return template_brief, "template", verify_citations(template_brief, passages)
 
 
 # ============================================================
@@ -449,7 +520,7 @@ class RAGPipeline:
         passages = retrieve_passages(self.collection, query)
 
         # Generate brief
-        brief, method = generate_brief(
+        brief, method, citation_check = generate_brief(
             claim_data, reason_codes, passages, risk_score, triage_bucket
         )
 
@@ -458,6 +529,7 @@ class RAGPipeline:
             "method": method,
             "passages": passages,
             "query": query,
+            "citation_check": citation_check,
         }
 
 
@@ -574,6 +646,7 @@ def run_demo():
             "brief": result["brief"],
             "passages_used": len(result["passages"]),
             "passage_sources": [p["source"] for p in result["passages"]],
+            "citation_check": result["citation_check"],
         })
 
     # Save all briefs

@@ -121,6 +121,7 @@ FSE 570 Capstone Project/
 │   ├── test_monitoring.py            # Batch ordering, drift exclusions, BH correction
 │   ├── test_fairness.py              # Disparate impact reference group, age binning
 │   ├── test_api.py                   # Endpoints, validation, train/serve skew guard
+│   ├── test_rag_guardrails.py        # Citation verification, prompt hygiene
 │   └── test_rag_pipeline.py          # Chunking, query building, brief generation tests
 │
 ├── .github/
@@ -471,7 +472,7 @@ In regulated industries like insurance, an audit trail of model decisions is oft
 
 ## Tests
 
-The project has 120 automated test functions across 6 files, covering all core modules. Tests run automatically on every GitHub push via CI, and again as the gate on the deploy workflow — the full suite in both, with identical invocations so the gate can never disagree with the badge.
+The project has 156 automated test functions across 8 files, covering all core modules. Tests run automatically on every GitHub push via CI, and again as the gate on the deploy workflow — the full suite in both, with identical invocations so the gate can never disagree with the badge.
 
 ```bash
 pytest tests/           # run all tests
@@ -489,6 +490,7 @@ pytest tests/ --cov=.   # with coverage report
 | `test_rag_pipeline.py` | Document chunking, chunk uniqueness, query building, template brief generation for all 3 triage buckets, API key fallback |
 | `test_monitoring.py` | Chronological batch ordering across years, drift-feature exclusions, Benjamini-Hochberg behaviour in both directions, seasonality sample-size guard, age-band derivation |
 | `test_fairness.py` | Disparate impact with a never-flagged reference group, NaN handling in the flag column, `Age == 0` binning |
+| `test_rag_guardrails.py` | Citation verification against retrieved passages, hallucinated-source detection, flag-don't-strip annotation, prompt hygiene |
 
 ### Why tests matter
 Without tests, every code change risks silently breaking something. For example:
@@ -671,14 +673,43 @@ Even among the 10 scored months the spread is mostly sampling noise: Dec 0.708 (
 
 Both modes retrieve guideline passages from ChromaDB and cite them in the brief. The template mode is fully professional and suitable for production use.
 
+### Guardrail: citations are verified against what was retrieved
+
+The brief is what a claims investigator reads before escalating a claim, so a fabricated citation is the failure that matters most on that page — it is fluent, authoritative and indistinguishable from a real one.
+
+`verify_citations()` parses every `[Source N]` out of the generated brief and confirms it refers to a passage that was actually supplied. The result is shown beside the brief on both pages:
+
+```
+Generated via: 🤖 GPT-4o-mini · ✅ 2/2 citations verified against 5 retrieved passages
+Generated via: 🤖 GPT-4o-mini · ⚠️ 1 unverified citation(s): [4] — not among the 3 retrieved
+```
+
+Invalid citations are **relabelled `[UNVERIFIED Source N]` in the text rather than stripped**. Deleting one would leave a fluent, unsourced assertion the reader has no reason to doubt; flagging keeps the failure visible to the person acting on it.
+
+The template mode cannot fail this check — it numbers the passages it was handed — which is asserted by a test rather than assumed.
+
+> **What this does not do.** It verifies a citation *points at something real*, not that the cited passage *supports* the sentence attached to it. That is an entailment check, needs a second model call, and is not implemented. Grounding is verified; entailment is not.
+
+The prompt also strips SHAP magnitudes and `[INTENSITY]` tags before sending reason codes to the model. It previously echoed them back, producing prose like *"a strong indicator of potential fraud risk (SHAP: +1.7181)"* in a document written for a reader with no machine-learning background.
+
+### Data sent to OpenAI
+
+In GPT-4o-mini mode the prompt contains claim attributes including **`Age`, `Sex` and `MaritalStatus`** — protected characteristics under US insurance regulation — along with policy and vehicle details. They are sent to a third-party API and fall under OpenAI's retention policy.
+
+For this project the data is a public Kaggle dataset of 1994–96 claims, so there is no live personal data at stake. A real deployment would need a documented data-processing agreement, and would likely redact or pseudonymise the demographic fields before they leave the network, since the brief does not need them to be useful.
+
+**Template mode sends nothing externally** and is the default when no key is configured.
+
 ### Setup
 ```bash
-# Local — add to .env file
+# Local — add to .env file (gitignored)
 OPENAI_API_KEY=sk-your-key-here
 
 # Hugging Face — add as Space secret
 # Settings → Variables and secrets → New secret → OPENAI_API_KEY
 ```
+
+> A key on a **public** Space can be spent by any visitor — there is no auth or rate limiting on the brief button. Set a hard monthly cap on the key, or leave the Space on template mode and demo the LLM path locally.
 
 ### RAG index behavior
 - **First run:** builds and persists the ChromaDB index to `outputs/rag/chroma_db/`
