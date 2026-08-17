@@ -1,7 +1,7 @@
 # Serving-only dependencies.
 #
 # Deliberately NOT requirements.txt: the training stack (catboost, lightgbm,
-# optuna, mlflow, evidently, pandera, streamlit, plotly, matplotlib) is not
+# optuna, mlflow, pandera, streamlit, plotly, matplotlib) is not
 # needed to score a claim and roughly triples the image. The API loads a fitted
 # preprocessor and a trained model — nothing that trains anything.
 

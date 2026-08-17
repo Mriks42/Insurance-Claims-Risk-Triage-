@@ -422,7 +422,7 @@ Each page has a collapsible **ℹ️** button at the top with a plain-English ex
 | `shap_explainability.py` | SHAP values and reason codes |
 | `rag_pipeline.py` | ChromaDB vector index + triage brief generation |
 | `fairness_analysis.py` | Disparate impact analysis across demographic groups |
-| `monitoring.py` | Batch drift detection (Evidently + KS test fallback) |
+| `monitoring.py` | Batch drift vs. the training split (KS test, Benjamini-Hochberg corrected) |
 | `temporal_analysis.py` | Per-month (seasonality) performance, pooled across years |
 | `medicare_comparison.py` | Medicare vs. auto EDA and comparison plots |
 | `medicare_modeling.py` | XGBoost + Optuna pipeline on Medicare provider fraud |
@@ -597,7 +597,7 @@ python fairness_analysis.py    # standalone run
 
 Simulates production monitoring by splitting the test set into 6 chronological batches and comparing each against the training data.
 
-- **Data drift**: feature distributions shifting (Evidently, KS-test fallback)
+- **Data drift**: feature distributions shifting (two-sample KS test, BH corrected)
 - **Prediction drift**: risk score distribution changing per batch
 - **Target drift**: actual fraud rate changing per batch
 
@@ -616,7 +616,7 @@ All 15,420 claims come from a single static 1994–96 collection that is split *
 | Batches ordered by **(Year, Month)** | Every calendar month contains claims from all three years (Jan is 43/34/23% across 1994/95/96), so ordering by month name alone interleaved years inside each batch |
 | `Year` and `RepNumber` **excluded** | `Year` is the batching key — testing it for drift is circular. `RepNumber` is a claims-rep identifier, not a distribution |
 | **Benjamini-Hochberg** correction | 5–6 batches × 5 features is ~30 hypothesis tests; at α=0.05 roughly 1.5 will fire by chance. A current run shows batch 5 flagging 1 feature at raw p<0.05 that the correction correctly removes — without it, the dashboard would report drift almost every run |
-| Verdict comes from the KS+BH path **regardless of environment** | Evidently is used only to render a supplementary HTML report; its own verdict is discarded. Previously Evidently's uncorrected numbers were used wherever it was installed, so the deployed Space and a local machine showed different tables under the same caption |
+| One implementation, no optional branches | Evidently was removed. It was preferred when importable and skipped when not, so drift results depended on which version pip resolved — the deployed Space and a local machine produced different tables from identical code. It applies no multiple-comparison correction, so it could not back the caption above |
 
 ---
 
@@ -701,7 +701,7 @@ OPENAI_API_KEY=sk-your-key-here
 | Data validation | None | Pandera schema checks |
 | Tests | None | 60+ pytest tests, CI via GitHub Actions |
 | Fairness | Not measured | Disparate impact analysis (80% rule) |
-| Monitoring | Not measured | Batch drift detection (Evidently, KS-test fallback) |
+| Monitoring | Not measured | Batch drift detection (KS test, Benjamini-Hochberg corrected) |
 | Temporal analysis | Not measured | Month-by-month performance tracking |
 | RAG corpus | 3 docs, 36 chunks, rebuilt every run | 4 docs, 56 chunks, persistent index, GPT-4o-mini integrated |
 | Deployment | Local only | Docker + Hugging Face Spaces (auto-deploy) |
@@ -714,7 +714,7 @@ Three items in the table above are narrower than they sound, and it is better to
 
 - **Calibration is a diagnostic, not part of serving.** The isotonic calibrator is fit on the validation set and the reliability diagram is drawn on that same set, so it flatters itself; and the dashboard loads the raw model and calls `predict_proba` directly. Triage is rank-based (top 5% / next 15%), so calibration does not affect bucket assignment.
 - **Permutation importance is reported, not applied.** `permutation_feature_selection()` computes and saves the ranking, but no features are dropped as a result — the model uses all 90 transformed features.
-- **Drift detection falls back.** `monitoring.py` prefers Evidently but wraps it in `try/except` and falls back to a SciPy KS test. Evidently ≥ 0.7 removed `evidently.report`, so `requirements.txt` pins `<0.7`; above that pin the KS path is what actually runs.
+- **Drift detection is one implementation.** `monitoring.py` runs KS tests with Benjamini-Hochberg correction directly. Evidently was removed: it was used only when importable, which made results depend on the resolved version.
 - **Model selection rests on 93 validation fraud cases.** The gap between XGBoost (0.3223), the OOF stack (0.3144) and CatBoost (0.2879) is within cross-validation noise (±0.025). "XGBoost was selected" is accurate; "XGBoost is better" would be overclaiming.
 - **Monitoring is a mechanics demo, and says so.** A randomly split static dataset has no time axis, so "stable" is the only honest outcome. See [Model Monitoring](#model-monitoring) for the four choices that keep that result meaningful.
 - **Seasonality is not decay, and small months are suppressed.** Two of twelve months have too few fraud cases to score. See [Seasonality Analysis](#seasonality-analysis).

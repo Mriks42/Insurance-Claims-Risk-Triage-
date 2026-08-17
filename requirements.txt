@@ -55,9 +55,9 @@ pytest>=7.4
 pytest-cov>=4.1
 
 # Monitoring / drift detection
-# Upper bound: evidently 0.7 removed evidently.report / evidently.metric_preset.
-# Above this bound monitoring.py silently falls back to its KS-test path.
-evidently>=0.4,<0.7
+# Evidently was removed deliberately. It was only reached when importable, which
+# made drift results depend on which version pip resolved; monitoring.py now
+# implements KS + Benjamini-Hochberg directly (scipy, already a dependency).
 
 # Config management
 pyyaml>=6.0

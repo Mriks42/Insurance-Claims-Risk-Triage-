@@ -19,7 +19,7 @@ An end-to-end fraud detection system for automotive insurance claims.
 - SHAP explainability with per-claim reason codes
 - RAG-powered triage briefs (GPT-4o-mini or template fallback)
 - Fairness analysis across age, sex, marital status (80% disparate impact rule)
-- Drift detection against the training distribution, with multiple-comparison correction
+- Drift detection against the training distribution (KS test, Benjamini-Hochberg corrected)
 - Per-month seasonality analysis with small-sample suppression
 - 8-page Streamlit dashboard with ℹ️ explanations on every page
 

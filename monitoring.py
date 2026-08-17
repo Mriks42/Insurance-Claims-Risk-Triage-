@@ -3,7 +3,7 @@ Model Monitoring & Drift Detection Module
 ==========================================
 Simulates production monitoring by splitting the test set into
 time-ordered batches and checking for data/prediction drift
-using the Evidently library.
+using two-sample KS tests with Benjamini-Hochberg correction.
 
 What it detects:
 - Data drift: input feature distributions shifting over time
@@ -115,56 +115,34 @@ def batch_statistics(batch):
 
 
 # ============================================================
-# Drift detection (Evidently)
+# Drift detection (KS test + Benjamini-Hochberg)
 # ============================================================
 def compute_drift_report(reference_df, current_df, feature_cols,
                           save_dir=MONITORING_DIR, batch_label="batch",
-                          write_html=True):
+                          write_html=False):
     """
     Compute data drift between reference (training) and current (batch) data.
 
-    The verdict ALWAYS comes from _manual_drift_check — KS tests with
-    Benjamini-Hochberg correction. Evidently is used only to render its HTML
-    report as a supplementary artifact, and its own verdict is deliberately
-    discarded.
+    One implementation, one answer: KS tests with Benjamini-Hochberg correction.
 
-    This used to be the other way round: Evidently's numbers were returned when
-    it was installed, and the KS+BH path ran only as a fallback. The two
-    disagreed, so the same code produced different tables in different
-    environments — the deployed Space (Evidently installed) showed 1 drifted
-    feature in three batches and a 20% drift share, while a local machine
-    without Evidently showed 0 everywhere, under a caption claiming
-    Benjamini-Hochberg correction in both cases. Evidently's DatasetDriftMetric
-    applies no multiple-comparison correction and uses its own dataset-level
-    threshold, so it cannot back that caption.
+    This used to prefer Evidently and fall back to KS only when Evidently was
+    absent. Since requirements.txt pinned no upper bound and Evidently 0.7
+    removed `evidently.report`, the branch taken depended on whichever version
+    pip happened to resolve — so the deployed Space and a local machine produced
+    different Drift Detection tables from identical code, with no error to
+    indicate it. Evidently applies no multiple-comparison correction and uses
+    its own dataset-level threshold, so the two paths could not agree even in
+    principle.
+
+    Evidently has been removed rather than demoted to HTML rendering: it was no
+    longer load-bearing, and an unused dependency that can silently change
+    behaviour is worse than no dependency.
+
+    write_html is retained for signature compatibility and is ignored.
 
     Returns drift summary dict.
     """
-    summary = _manual_drift_check(reference_df, current_df, feature_cols, batch_label)
-
-    if not write_html:
-        return summary
-
-    # Optional: Evidently's HTML report, for eyeballing distributions. Failure
-    # here is not a drift-detection failure, so it never changes the verdict.
-    try:
-        from evidently.report import Report
-        from evidently.metric_preset import DataDriftPreset
-        from evidently.metrics import DatasetDriftMetric
-
-        shared_cols = [c for c in feature_cols
-                       if c in reference_df.columns and c in current_df.columns]
-        report = Report(metrics=[DatasetDriftMetric(), DataDriftPreset()])
-        report.run(reference_data=reference_df[shared_cols].copy(),
-                   current_data=current_df[shared_cols].copy())
-
-        html_path = os.path.join(save_dir, f"drift_report_{batch_label}.html")
-        report.save_html(html_path)
-        summary["html_report"] = html_path
-    except Exception:
-        pass   # Evidently absent or API changed — the KS+BH verdict stands
-
-    return summary
+    return _manual_drift_check(reference_df, current_df, feature_cols, batch_label)
 
 
 def _manual_drift_check(reference_df, current_df, feature_cols, batch_label,
