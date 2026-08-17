@@ -45,21 +45,40 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
+      # A fork or a second copy of this repo has no HF_* secrets configured, and
+      # a permanently red deploy badge trains you to ignore the badge. Check
+      # first and no-op with a clear message instead of failing.
+      - name: Check deployment secrets
+        id: secrets
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::HF_TOKEN is not set — skipping deployment. Add HF_TOKEN, HF_USERNAME and HF_SPACE_NAME under Settings > Secrets to enable it."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
+        if: steps.secrets.outputs.configured == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           lfs: true
 
       - name: Set up Python
+        if: steps.secrets.outputs.configured == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install huggingface_hub
+        if: steps.secrets.outputs.configured == 'true'
         run: pip install huggingface_hub
 
       - name: Push to Hugging Face Space
+        if: steps.secrets.outputs.configured == 'true'
         env:
           HF_TOKEN:      ${{ secrets.HF_TOKEN }}
           HF_USERNAME:   ${{ secrets.HF_USERNAME }}

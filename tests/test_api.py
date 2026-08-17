@@ -20,13 +20,24 @@ from fastapi.testclient import TestClient   # noqa: E402
 
 from api.main import app, MAX_BATCH         # noqa: E402
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 ARTIFACTS_PRESENT = os.path.exists(
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                 "outputs", "improvement", "serving_bundle.json")
+    os.path.join(ROOT, "outputs", "improvement", "serving_bundle.json")
 )
 needs_artifacts = pytest.mark.skipif(
     not ARTIFACTS_PRESENT,
     reason="serving artifacts absent — run `python train.py`",
+)
+
+# fraud_oracle.csv is deliberately not in the repo (Kaggle terms), so CI never
+# has it. Most of this file needs only the committed artifacts and runs
+# everywhere; the skew guard has to compare against the offline model on real
+# rows, so it needs the dataset and skips without it.
+DATASET_PRESENT = os.path.exists(os.path.join(ROOT, "fraud_oracle.csv"))
+needs_dataset = pytest.mark.skipif(
+    not DATASET_PRESENT,
+    reason="fraud_oracle.csv absent — download from Kaggle to run this locally",
 )
 
 VALID_CLAIM = {
@@ -182,6 +193,7 @@ class TestBatch:
 class TestTrainServeSkew:
     """The guard that matters: HTTP scoring must equal offline scoring."""
 
+    @needs_dataset
     def test_api_matches_offline_model(self, client):
         from data_pipeline import (build_model_dataset, load_best_model,
                                    raw_rows_for)
